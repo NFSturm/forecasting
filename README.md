@@ -20,5 +20,6 @@ https://www.nber.org/cycles.html
 * dplyr
 * doParallel
 * MLmetrics
+* data.table
 
 **Note**: Since recessions rarely happen (luckily!), the classes "Bust" (for recession) and "NoBust" (no recession) are heavily imbalanced. This creates some problem during the optimization process. 
