@@ -1,37 +1,144 @@
 ---
-title: "Challenge Accepted"
+title: "This Is the Way"
 author: "Niclas Frederic Sturm"
-date: "21 11 2019"
-output: html_document
+date: "7-01-2019"
+output:
+  html_document:
+    theme: yeti
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Data Preprocessing
 
 Dieses Dokument enthält die notwendigen Befehle für die Reproduktion der Analyse. 
 
-```{r cars}
+```{r cars, message = FALSE, warning = FALSE}
 library(readxl)
 library(zoo)
 library(timetk)
 library(lubridate)
+library(xts)
+library(tidyquant)
+library(ggplot2)
+library(forcats)
+library(rsample)
+library(caret)
+library(quantmod)
+library(dplyr)
+library(doParallel)
+library(MLmetrics)
 spread <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/YieldSpread.xls", range = "A12:B11353", col_names = c("Date", "Spread"))
 spread <- tk_tbl(spread)
 spread_xts <- tk_xts(spread)
+spread$Date <- as.yearmon(spread$Date)
 month.end <- endpoints(spread_xts, on = "months")
-monthly <- period.apply(spread_xts, INDEX = month.end, FUN = mean)
-
+month_by_day <- period.apply(spread_xts, INDEX = month.end, FUN = mean)
+monthly_spread <- to.monthly(month_by_day)
+monthly_spread <- monthly_spread$month_by_day.Open
+colnames(monthly_spread) <- "Spread"
+Date <- tk_index(monthly_spread)
+Date_df <- tibble::enframe(Date)
+spread_df <- as_tibble(coredata(monthly_spread$Spread))
+monthly_spread_df <- bind_cols(Date_df, spread_df)
+monthly_spread_df$name <- NULL
 ```
 
-## Including Plots
+Nach dem Preprocessing der ökonomischen Daten können wir nun die Yield-Kurve der US-Treasury-Bills als Zeitreihe darstellen.
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r message = FALSE}
+autoplot(monthly_spread) + geom_line(col = "#9fd6ff") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 15)) + labs(title = "Yield Spread from 1976 through 2019", subtitle = "Monthly Average")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+recession <- tibble(indicator = rep("NoBust", 522))
+Date <- tibble::enframe(index(monthly_spread))
+recession <- bind_cols(Date, recession)
+recession$name <- NULL
+colnames(recession) <- c("Date", "Indicator")
+recession$Date <- as_date(recession$Date)
+
+# Gemäß Klassifizierung des NBER werden nun die fünf Rezessionen seit 1975 eingetragen.
+recession[recession$Date >= "2007-12-01" & recession$Date <= "2009-06-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1980-01-01" & recession$Date <= "1980-07-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1981-07-01" & recession$Date <= "1981-11-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1990-07-01" & recession$Date <= "1991-03-01",]$Indicator <- "Bust"
+recession[recession$Date >= "2001-03-01" & recession$Date <= "2001-11-01",]$Indicator <- "Bust"
+
+# Zusammenführung der Datensätze
+spread_data <- bind_cols(list(recession$Date, monthly_spread_df$Spread, recession$Indicator))
+colnames(spread_data) <- c("Date", "Spread", "Indicator")
+spread_data$Indicator <- as_factor(spread_data$Indicator)
+
+# Feature-Engineering mit 10 Lags
+n = 10
+spread_data <- setDT(spread_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+spread_data <- spread_data %>%
+  fill(Lag1:Lag10, .direction = "up")
+spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
+```
+
+## Modellierung
+
+```{r}
+splits <- initial_time_split(spread_data, prop = 2/3)
+train_data <- training(splits)
+test_data <- testing(splits)
+```
+
+```{r}
+# Warp-Antrieb
+nr_cores <- detectCores() - 2
+cl <- makeCluster(nr_cores) # Verwendung der Kernzahl minus 2
+registerDoParallel(cl)
+
+TimeLord <- trainControl(method = "timeslice",
+                              initialWindow = 60,
+                              horizon = 12,
+                              fixedWindow = FALSE,
+                              allowParallel = TRUE,
+                              summaryFunction = twoClassSummary,
+                              classProbs = TRUE)
+
+tuneLength.num <- 5
+```
+
+
+
+```{r}
+rf_mod <- train(Indicator~ . - Date,
+                data = train_data,
+                method = "ranger",
+                trControl = TimeLord,
+                tuneLength=tuneLength.num, metric = "Sens")
+
+boost_mod <- train(Indicator~ . - Date,
+                data = train_data,
+                method = "gbm",
+                trControl = TimeLord,
+                tuneLength=tuneLength.num,
+                verbose = FALSE, metric = "Sens")
+
+logistic_mod <- train(Indicator~ . - Date,
+                data = train_data,
+                method = "glm",
+                family = "binomial",
+                trControl = TimeLord,
+                tuneLength=tuneLength.num, metric = "Sens")
+
+#stopCluster(cl)
+```
+
+```{r}
+resamps <- resamples(list(boost = boost_mod, ranger = rf_mod, logistic = logistic_mod))
+ss <- summary(resamps)
+```
+
+```{r}
+Date_test <- test_data$Date
+Date_test <- as_tibble(Date_test)
+ranger_mod <- ranger(Indicator ~. -Date, data = train_data, mtry = 2, probability = TRUE)
+```
+
