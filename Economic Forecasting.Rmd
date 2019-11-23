@@ -7,10 +7,6 @@ output:
     theme: yeti
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Data Preprocessing
 
 Dieses Dokument enthält die notwendigen Befehle für die Reproduktion der Analyse. 
@@ -29,6 +25,7 @@ library(quantmod)
 library(dplyr)
 library(doParallel)
 library(MLmetrics)
+library(data.table)
 spread <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/YieldSpread.xls", range = "A12:B11353", col_names = c("Date", "Spread"))
 spread <- tk_tbl(spread)
 spread_xts <- tk_xts(spread)
