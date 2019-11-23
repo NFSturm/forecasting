@@ -7,4 +7,18 @@ https://fred.stlouisfed.org/series/T10Y2Y
 Data for US recession is from NBER:
 https://www.nber.org/cycles.html
 
+# Packages used 
+* readxl
+* zoo
+* timetk
+* xts
+* tidyquant
+* ggplot2
+* rsample
+* caret
+* quantmod
+* dplyr
+* doParallel
+* MLmetrics
 
+**Note**: Since recessions rarely happen (luckily!), the classes "Bust" (for recession) and "NoBust" (no recession) are heavily imbalanced. This creates some problem during the optimization process. 
