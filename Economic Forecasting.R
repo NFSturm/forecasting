@@ -37,9 +37,8 @@ rec_dates$begin <- as.Date(rec_dates$begin)
 rec_dates$end <- as.Date(rec_dates$end)
 monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
 
-Nach dem Preprocessing der ökonomischen Daten können wir nun die Yield-Kurve der US-Treasury-Bills als Zeitreihe darstellen.
-
-ggplot(monthly_spread_df, aes(x = Date, y = Spread)) + geom_line(col = "#9fd6ff") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt", caption = "Quelle: FRED") + geom_rect(data = rec_dates, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(monthly_spread_df, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 2-Year Maturity)", caption = "Quelle: FRED") + 
+  geom_rect(data = rec_dates, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 recession <- tibble(indicator = rep("NoBust", 522))
 Date <- tibble::enframe(index(monthly_spread))
@@ -58,7 +57,7 @@ recession[recession$Date >= "2001-03-01" & recession$Date <= "2001-11-01",]$Indi
 # Zusammenführung der Datensätze
 spread_data <- bind_cols(list(recession$Date, monthly_spread_df$Spread, recession$Indicator))
 colnames(spread_data) <- c("Date", "Spread", "Indicator")
-spread_data$Indicator <- as_factor(spread_data$Indicator)
+spread_data$Indicator <- as.factor(spread_data$Indicator)
 
 # Feature-Engineering mit 10 Lags
 n = 10
@@ -73,6 +72,8 @@ set.seed(28101997)
 splits <- initial_time_split(spread_data, prop = 2/3)
 train_data <- training(splits)
 test_data <- testing(splits)
+train_data$Date <- NULL
+test_data$Date <- NULL
 
 
 # Warp-Antrieb
@@ -92,30 +93,47 @@ TimeLord <- trainControl(method = "timeslice",
 tuneLength.num <- 10
 
 set.seed(28101997)
-rf_mod <- train(Indicator~ . - Date,
+rf_mod <- train(Indicator~ .,
                 data = train_data,
                 method = "ranger",
                 trControl = TimeLord,
+                preProcess = c("center", "scale"),
                 tuneLength=tuneLength.num, metric = "AUC")
 
-boost_mod <- train(Indicator~ . - Date,
+boost_mod <- train(Indicator~ .,
                    data = train_data,
                    method = "gbm",
                    trControl = TimeLord,
+                   preProcess = c("center", "scale"),
                    tuneLength=tuneLength.num,
                    verbose = FALSE, metric = "AUC")
 
-logistic_mod <- train(Indicator~ . - Date,
+logistic_mod <- train(Indicator~ .,
                       data = train_data,
                       method = "glm",
                       family = "binomial",
+                      preProcess = c("center", "scale"),
                       trControl = TimeLord,
                       tuneLength=tuneLength.num, metric = "AUC")
+
+svm_lin_mod <- train(Indicator~.,
+                 data = train_data,
+                 method = "svmLinear",
+                 preProcess = c("center", "scale"),
+                 trControl = TimeLord,
+                 tuneLength = tuneLength.num, metric = "AUC")
+
+svm_radial_mod <- train(Indicator~.,
+                        data = train_data,
+                        method = "svmRadial",
+                        preProcess = c("center", "scale"),
+                        trControl = TimeLord,
+                        tuneLength = tuneLength.num, metric = "AUC")
 
 #stopCluster(cl)
 
 set.seed(28101997)
-resamps <- resamples(list(boost = boost_mod, ranger = rf_mod, logistic = logistic_mod))
+resamps <- resamples(list(boost = boost_mod, ranger = rf_mod, logistic = logistic_mod, svm_lin = svm_lin_mod, svm_radial = svm_radial_mod))
 sum_resamps <- summary(resamps)
 sum_resamps
 
@@ -137,13 +155,12 @@ Date_train <- as_tibble(Date_train)
 
 pred_rf <- as_tibble(predict.train(rf_mod, type = "prob"))
 rf_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_rf$Bust)
-ggplot(rf_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#9fd6ff") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(rf_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 pred_logistic <- as_tibble(predict.train(logistic_mod, type = "prob"))
 logistic_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_logistic$Bust)
-ggplot(logistic_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#9fd6ff") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(logistic_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 pred_boost <- as_tibble(predict.train(boost_mod, type = "prob"))
 boost_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_boost$Bust)
-ggplot(boost_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#9fd6ff") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
-
+ggplot(boost_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
