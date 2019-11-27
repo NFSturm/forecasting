@@ -66,15 +66,22 @@ spread_data <- spread_data %>%
   fill(Lag1:Lag10, .direction = "up")
 spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
 
+
+
 ## Modellierung
 
 set.seed(28101997)
 splits <- initial_time_split(spread_data, prop = 2/3)
 train_data <- training(splits)
 test_data <- testing(splits)
-train_data$Date <- NULL
-test_data$Date <- NULL
 
+Date_train <- train_data$Date
+Date_train <- as_tibble(Date_train)
+train_data$Date <- NULL
+
+Date_test <- test_data$Date
+Date_test <- as_tibble(Date_test)
+test_data$Date <- NULL
 
 # Warp-Antrieb
 set.seed(28101997)
@@ -100,6 +107,7 @@ rf_mod <- train(Indicator~ .,
                 preProcess = c("center", "scale"),
                 tuneLength=tuneLength.num, metric = "AUC")
 
+set.seed(28101997)
 boost_mod <- train(Indicator~ .,
                    data = train_data,
                    method = "gbm",
@@ -108,6 +116,7 @@ boost_mod <- train(Indicator~ .,
                    tuneLength=tuneLength.num,
                    verbose = FALSE, metric = "AUC")
 
+set.seed(28101997)
 logistic_mod <- train(Indicator~ .,
                       data = train_data,
                       method = "glm",
@@ -116,6 +125,7 @@ logistic_mod <- train(Indicator~ .,
                       trControl = TimeLord,
                       tuneLength=tuneLength.num, metric = "AUC")
 
+set.seed(28101997)
 svm_lin_mod <- train(Indicator~.,
                  data = train_data,
                  method = "svmLinear",
@@ -123,9 +133,18 @@ svm_lin_mod <- train(Indicator~.,
                  trControl = TimeLord,
                  tuneLength = tuneLength.num, metric = "AUC")
 
+set.seed(28101997)
 svm_radial_mod <- train(Indicator~.,
                         data = train_data,
                         method = "svmRadial",
+                        preProcess = c("center", "scale"),
+                        trControl = TimeLord,
+                        tuneLength = tuneLength.num, metric = "AUC")
+
+set.seed(28101998)
+svm_poly_mod <- train(Indicator~.,
+                        data = train_data,
+                        method = "svmPoly",
                         preProcess = c("center", "scale"),
                         trControl = TimeLord,
                         tuneLength = tuneLength.num, metric = "AUC")
@@ -148,11 +167,6 @@ rec_dates_train$begin <- as.Date(rec_dates_train$begin)
 rec_dates_train$end <- as.Date(rec_dates_train$end)
 monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
 
-
-Date_train <- train_data$Date
-Date_train <- as_tibble(Date_train)
-
-
 pred_rf <- as_tibble(predict.train(rf_mod, type = "prob"))
 rf_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_rf$Bust)
 ggplot(rf_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
@@ -164,3 +178,12 @@ ggplot(logistic_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#
 pred_boost <- as_tibble(predict.train(boost_mod, type = "prob"))
 boost_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_boost$Bust)
 ggplot(boost_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+pred_svm_lin <- as_tibble(predict(svm_lin_mod, data = train_data, type = "prob"))
+svm_lin_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_lin$Bust)
+ggplot(svm_lin_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+pred_svm_radial <- as_tibble(predict(svm_radial_mod, data = train_data, type = "prob"))
+svm_radial_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_radial$Bust)
+ggplot(svm_radial_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+

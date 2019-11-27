@@ -52,7 +52,6 @@ rec_dates$end <- as.Date(rec_dates$end)
 monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
 ```
 
-
 Nach dem Preprocessing der ökonomischen Daten können wir nun die Yield-Kurve der US-Treasury-Bills als Zeitreihe darstellen.
 
 ```{r message = FALSE}
@@ -90,12 +89,20 @@ spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
 
 ## Modellierung
 
+Wir verwenden einen Trainings- und einen Testing-Datensatz, entfernen zusätzlich die Datumsspalte. 
+
 ```{r}
 set.seed(28101997)
 splits <- initial_time_split(spread_data, prop = 2/3)
 train_data <- training(splits)
 test_data <- testing(splits)
+
+Date_train <- train_data$Date
+Date_train <- as_tibble(Date_train)
 train_data$Date <- NULL
+
+Date_test <- test_data$Date
+Date_test <- as_tibble(Date_test)
 test_data$Date <- NULL
 ```
 
@@ -117,7 +124,12 @@ TimeLord <- trainControl(method = "timeslice",
 tuneLength.num <- 10
 ```
 
+Für die Trainingsdaten verwenden wir die folgenden Modelle:
 
+* Random Forest
+* Boosting
+* Logistische Regression
+* Support Vector Machine (mit linearem, radial-basischem und polynomialen Kernel)
 
 ```{r}
 set.seed(28101997)
@@ -180,12 +192,6 @@ rec_dates_train$end <- as.Date(rec_dates_train$end)
 monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
 ```
 
-
-```{r}
-Date_train <- train_data$Date
-Date_train <- as_tibble(Date_train)
-```
-
 ```{r}
 pred_rf <- as_tibble(predict.train(rf_mod, type = "prob"))
 rf_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_rf$Bust)
@@ -198,5 +204,13 @@ ggplot(logistic_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#
 pred_boost <- as_tibble(predict.train(boost_mod, type = "prob"))
 boost_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_boost$Bust)
 ggplot(boost_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+pred_svm_lin <- as_tibble(predict(svm_lin_mod, data = train_data, type = "prob"))
+svm_lin_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_lin$Bust)
+ggplot(svm_lin_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+pred_svm_radial <- as_tibble(predict(svm_radial_mod, data = train_data, type = "prob"))
+svm_radial_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_radial$Bust)
+ggplot(svm_radial_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 ```
 
