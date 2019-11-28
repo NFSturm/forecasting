@@ -96,7 +96,7 @@ TimeLord <- trainControl(method = "timeslice",
                          classProbs = TRUE,
                          savePredictions = "final")
 
-tuneLength.num <- 10
+tuneLength_num <- 10
 
 set.seed(28101997)
 rf_mod <- train(Indicator~ .,
@@ -104,7 +104,7 @@ rf_mod <- train(Indicator~ .,
                 method = "ranger",
                 trControl = TimeLord,
                 preProcess = c("center", "scale"),
-                tuneLength=tuneLength.num, metric = "AUC")
+                tuneLength=tuneLength_num, metric = "AUC")
 
 set.seed(28101997)
 boost_mod <- train(Indicator~ .,
@@ -112,7 +112,7 @@ boost_mod <- train(Indicator~ .,
                    method = "gbm",
                    trControl = TimeLord,
                    preProcess = c("center", "scale"),
-                   tuneLength=tuneLength.num,
+                   tuneLength=tuneLength_num,
                    verbose = FALSE, metric = "AUC")
 
 set.seed(28101997)
@@ -122,7 +122,7 @@ logistic_mod <- train(Indicator~ .,
                       family = "binomial",
                       preProcess = c("center", "scale"),
                       trControl = TimeLord,
-                      tuneLength=tuneLength.num, metric = "AUC")
+                      tuneLength=tuneLength_num, metric = "AUC")
 
 set.seed(28101997)
 svm_lin_mod <- train(Indicator~.,
@@ -130,7 +130,7 @@ svm_lin_mod <- train(Indicator~.,
                  method = "svmLinear",
                  preProcess = c("center", "scale"),
                  trControl = TimeLord,
-                 tuneLength = tuneLength.num, metric = "AUC")
+                 tuneLength = tuneLength_num, metric = "AUC")
 
 set.seed(28101997)
 svm_radial_mod <- train(Indicator~.,
@@ -138,7 +138,7 @@ svm_radial_mod <- train(Indicator~.,
                         method = "svmRadial",
                         preProcess = c("center", "scale"),
                         trControl = TimeLord,
-                        tuneLength = tuneLength.num, metric = "AUC")
+                        tuneLength = tuneLength_num, metric = "AUC")
 
 #stopCluster(cl)
 

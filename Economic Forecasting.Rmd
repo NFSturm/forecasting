@@ -122,7 +122,7 @@ TimeLord <- trainControl(method = "timeslice",
                               classProbs = TRUE,
                               savePredictions = "final")
 
-tuneLength.num <- 10
+tuneLength_num <- 10
 ```
 
 Für die Trainingsdaten verwenden wir die folgenden Modelle:
@@ -130,7 +130,7 @@ Für die Trainingsdaten verwenden wir die folgenden Modelle:
 * Random Forest
 * Boosting
 * Logistische Regression
-* Support Vector Machine (mit linearem, radial-basischem und polynomialen Kernel)
+* Support Vector Machine (mit linearem und radial-basischem)
 
 ```{r}
 set.seed(28101997)
@@ -138,7 +138,7 @@ rf_mod <- train(Indicator~ .,
                 data = train_data,
                 method = "ranger",
                 trControl = TimeLord,
-                tuneLength=tuneLength.num, metric = "AUC")
+                tuneLength=tuneLength_num, metric = "AUC")
 
 boost_mod <- train(Indicator~ .,
                 data = train_data,
@@ -152,21 +152,21 @@ logistic_mod <- train(Indicator~ .,
                 method = "glm",
                 family = "binomial",
                 trControl = TimeLord,
-                tuneLength=tuneLength.num, metric = "AUC")
+                tuneLength=tuneLength_num, metric = "AUC")
 
 svm_lin_mod <- train(Indicator~.,
                  data = train_data,
                  method = "svmLinear",
                  preProcess = c("center", "scale"),
                  trControl = TimeLord,
-                 tuneLength = tuneLength.num, metric = "AUC")
+                 tuneLength = tuneLength_num, metric = "AUC")
 
 svm_radial_mod <- train(Indicator~.,
                         data = train_data,
                         method = "svmRadial",
                         preProcess = c("center", "scale"),
                         trControl = TimeLord,
-                        tuneLength = tuneLength.num, metric = "AUC")
+                        tuneLength = tuneLength_num, metric = "AUC")
 
 #stopCluster(cl)
 ```
