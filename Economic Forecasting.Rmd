@@ -119,7 +119,8 @@ TimeLord <- trainControl(method = "timeslice",
                               fixedWindow = FALSE,
                               allowParallel = TRUE,
                               summaryFunction = prSummary,
-                              classProbs = TRUE)
+                              classProbs = TRUE,
+                              savePredictions = "final")
 
 tuneLength.num <- 10
 ```
@@ -193,24 +194,74 @@ monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
 ```
 
 ```{r}
-pred_rf <- as_tibble(predict.train(rf_mod, type = "prob"))
-rf_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_rf$Bust)
-ggplot(rf_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+# Random Forest
 
-pred_logistic <- as_tibble(predict.train(logistic_mod, type = "prob"))
-logistic_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_logistic$Bust)
-ggplot(logistic_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+rf_preds <- rf_mod$pred
+rf_preds <- rf_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
 
-pred_boost <- as_tibble(predict.train(boost_mod, type = "prob"))
-boost_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_boost$Bust)
-ggplot(boost_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+rf_preds <- rf_preds[order(rf_preds$rowIndex),]
+rf_preds <- rf_preds[!duplicated(rf_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+rf_preds_dates <- bind_cols(Dates_holdout, rf_preds)
+colnames(rf_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
-pred_svm_lin <- as_tibble(predict(svm_lin_mod, data = train_data, type = "prob"))
-svm_lin_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_lin$Bust)
-ggplot(svm_lin_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+# Logistic Regression
 
-pred_svm_radial <- as_tibble(predict(svm_radial_mod, data = train_data, type = "prob"))
-svm_radial_train_pred <- bind_cols(Date = Date_train$value, Spread_Pred = pred_svm_radial$Bust)
-ggplot(svm_radial_train_pred, aes(x = Date, y = Spread_Pred)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+logistic_preds <- logistic_mod$pred
+logistic_preds <- logistic_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+logistic_preds <- logistic_preds[order(logistic_preds$rowIndex),]
+logistic_preds <- logistic_preds[!duplicated(logistic_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds)
+colnames(logistic_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# Boosting
+
+boosting_preds <- boost_mod$pred
+boosting_preds <- boosting_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+boosting_preds <- boosting_preds[order(boosting_preds$rowIndex),]
+boosting_preds <- boosting_preds[!duplicated(boosting_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds)
+colnames(boosting_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# SVM (Linear)
+
+svm_lin_preds <- svm_lin_mod$pred
+svm_lin_preds <- svm_lin_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+svm_lin_preds <- svm_lin_preds[order(svm_lin_preds$rowIndex),]
+svm_lin_preds <- svm_lin_preds[!duplicated(svm_lin_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+svm_lin_preds_dates <- bind_cols(Dates_holdout, svm_lin_preds)
+colnames(svm_lin_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# SVM (RBF)
+
+svm_radial_preds <- svm_radial_mod$pred
+svm_radial_preds <- svm_radial_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+svm_radial_preds <- svm_radial_preds[order(svm_radial_preds$rowIndex),]
+svm_radial_preds <- svm_radial_preds[!duplicated(svm_radial_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
+colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 ```
 
