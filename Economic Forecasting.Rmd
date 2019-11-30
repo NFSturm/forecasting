@@ -87,6 +87,16 @@ spread_data <- spread_data %>%
 spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
 ```
 
+Der Datensatz weist eine erhebliche Disbalance zwischen in der Zahl von Rezessionen gegenüber rezessionsfreien Zeiten auf.
+
+```{r}
+ggplot(data = spread_data) + 
+    geom_bar(mapping = aes(x = Indicator, y = ..prop.., group = 1), stat = "count", fill = "#4CA3DD") + 
+    scale_y_continuous(labels = scales::percent_format(scale = 100)) + theme_classic() + xlab("Recession Indicator") + ylab("Proportion") + theme(text = element_text(family = "Crimson", size = 15)) + labs(title = "Klassenverhältnis des Datensatzes", subtitle = "Bezogen auf Gesamtdatensatz")
+```
+
+
+
 ## Modellierung
 
 Wir verwenden einen Trainings- und einen Testing-Datensatz, entfernen zusätzlich die Datumsspalte. 
@@ -263,5 +273,32 @@ Dates_holdout <- Date_train[51:348,]
 svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+```
+
+```{r}
+rf_test <- predict(rf_mod, test_data, type = "raw")
+rf_cm <- confusionMatrix(rf_test, test_data$Indicator)
+recall_rf <- rf_cm$byClass[1]
+precision_rf <- rf_cm$byClass[5]
+
+boost_test <- predict(boost_mod, test_data, type = "raw")
+boost_cm <- confusionMatrix(boost_test, test_data$Indicator)
+recall_boost <- boost_cm$byClass[1]
+precision_boost <- boost_cm$byClass[5]
+
+logistic_test <- predict(logistic_mod, test_data, type = "raw")
+log_cm <- confusionMatrix(logistic_test, test_data$Indicator)
+recall_log <- log_cm$byClass[1]
+precision_log <- log_cm$byClass[5]
+
+svm_lin_test <- predict(svm_lin_mod, test_data, type = "raw")
+svm_lin_cm <- confusionMatrix(svm_lin_test, test_data$Indicator)
+recall_svm_lin <- svm_lin_cm$byClass[1]
+precision_svm_lin <- svm_lin_cm$byClass[5]
+
+svm_radial_test <- predict(svm_radial_mod, test_data, type = "raw")
+svm_radial_cm <- confusionMatrix(svm_radial_test, test_data$Indicator)
+recall_svm_radial <- svm_radial_cm$byClass[1]
+precision_svm_radial <- svm_radial_cm$byClass[5]
 ```
 

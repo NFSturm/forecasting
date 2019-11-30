@@ -1,4 +1,4 @@
-## Data Preprocessing
+# Data Preprocessing
 set.seed(28101997) # Seed für Reproduzierbarkeit
 library(readxl)
 library(zoo)
@@ -13,6 +13,7 @@ library(dplyr)
 library(doParallel)
 library(MLmetrics)
 library(data.table)
+library(Metrics)
 spread <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/YieldSpread.xls", range = "A12:B11353", col_names = c("Date", "Spread"))
 spread <- tk_tbl(spread)
 spread_xts <- tk_xts(spread)
@@ -80,6 +81,8 @@ train_data$Date <- NULL
 Date_test <- test_data$Date
 Date_test <- as_tibble(Date_test)
 test_data$Date <- NULL
+
+test_data$Indicator <- ifelse(test_data$Indicator == "Bust", 1, 0)
 
 # Warp-Antrieb
 set.seed(28101997)
@@ -228,3 +231,34 @@ svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
+# Test Performance
+
+rf_test <- predict(rf_mod, test_data, type = "raw")
+rf_cm <- confusionMatrix(rf_test, test_data$Indicator)
+recall_rf <- rf_cm$byClass[1]
+precision_rf <- rf_cm$byClass[5]
+rf <- list(recall_rf, precision_rf)
+
+boost_test <- predict(boost_mod, test_data, type = "raw")
+boost_cm <- confusionMatrix(boost_test, test_data$Indicator)
+recall_boost <- boost_cm$byClass[6]
+precision_boost <- boost_cm$byClass[5]
+boost <- list(recall_boost, precision_boost)
+
+logistic_test <- predict(logistic_mod, test_data, type = "raw")
+log_cm <- confusionMatrix(logistic_test, test_data$Indicator)
+recall_log <- log_cm$byClass[6]
+precision_log <- log_cm$byClass[5]
+logistic <- list(recall_log, precision_log)
+
+svm_lin_test <- predict(svm_lin_mod, test_data, type = "raw")
+svm_lin_cm <- confusionMatrix(svm_lin_test, test_data$Indicator)
+recall_svm_lin <- svm_lin_cm$byClass[6]
+precision_svm_lin <- svm_lin_cm$byClass[5]
+svm_lin <- list(recall_svm_lin, precision_svm_lin)
+
+svm_radial_test <- predict(svm_radial_mod, test_data, type = "raw")
+svm_radial_cm <- confusionMatrix(svm_radial_test, test_data$Indicator)
+recall_svm_radial <- svm_radial_cm$byClass[6]
+precision_svm_radial <- svm_radial_cm$byClass[5]
+svm_radial <- list(recall_svm_radial, precision_svm_radial)
