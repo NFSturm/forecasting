@@ -5,7 +5,13 @@ date: "7-01-2019"
 output:
   html_document:
     theme: yeti
+  
 ---
+
+<style>
+body {
+text-align: justify}
+</style>
 
 ## Data Preprocessing
 
@@ -80,11 +86,22 @@ colnames(spread_data) <- c("Date", "Spread", "Indicator")
 spread_data$Indicator <- as.factor(spread_data$Indicator)
 
 # Feature-Engineering mit 10 Lags
+set.seed(28101997)
+splits <- initial_time_split(spread_data, prop = 2/3)
+train_data <- training(splits)
+test_data <- testing(splits)
+
 n = 10
-spread_data <- setDT(spread_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
-spread_data <- spread_data %>%
+train_data <- setDT(train_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+train_data <- train_data %>%
   fill(Lag1:Lag10, .direction = "up")
-spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
+train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
+
+n = 10
+test_data <- setDT(test_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+test_data <- test_data %>%
+  fill(Lag1:Lag10, .direction = "up")
+test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 ```
 
 Der Datensatz weist eine erhebliche Disbalance zwischen in der Zahl von Rezessionen gegenüber rezessionsfreien Zeiten auf.
@@ -102,11 +119,6 @@ ggplot(data = spread_data) +
 Wir verwenden einen Trainings- und einen Testing-Datensatz, entfernen zusätzlich die Datumsspalte. 
 
 ```{r}
-set.seed(28101997)
-splits <- initial_time_split(spread_data, prop = 2/3)
-train_data <- training(splits)
-test_data <- testing(splits)
-
 Date_train <- train_data$Date
 Date_train <- as_tibble(Date_train)
 train_data$Date <- NULL
@@ -154,7 +166,7 @@ boost_mod <- train(Indicator~ .,
                 data = train_data,
                 method = "gbm",
                 trControl = TimeLord,
-                tuneLength=tuneLength.num,
+                tuneLength=tuneLength_num,
                 verbose = FALSE, metric = "AUC")
 
 logistic_mod <- train(Indicator~ .,
@@ -276,29 +288,83 @@ ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(co
 ```
 
 ```{r}
+svm_radial_preds <- svm_radial_mod$pred
+svm_radial_preds <- svm_radial_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+svm_radial_preds <- svm_radial_preds[order(svm_radial_preds$rowIndex),]
+svm_radial_preds <- svm_radial_preds[!duplicated(svm_radial_preds$rowIndex),]
+Dates_holdout <- Date_train[51:348,]
+svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
+colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
+ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# Test Performance
+
 rf_test <- predict(rf_mod, test_data, type = "raw")
 rf_cm <- confusionMatrix(rf_test, test_data$Indicator)
 recall_rf <- rf_cm$byClass[1]
 precision_rf <- rf_cm$byClass[5]
+rf <- list(recall_rf, precision_rf)
 
 boost_test <- predict(boost_mod, test_data, type = "raw")
 boost_cm <- confusionMatrix(boost_test, test_data$Indicator)
-recall_boost <- boost_cm$byClass[1]
+recall_boost <- boost_cm$byClass[6]
 precision_boost <- boost_cm$byClass[5]
+boost <- list(recall_boost, precision_boost)
 
 logistic_test <- predict(logistic_mod, test_data, type = "raw")
 log_cm <- confusionMatrix(logistic_test, test_data$Indicator)
-recall_log <- log_cm$byClass[1]
+recall_log <- log_cm$byClass[6]
 precision_log <- log_cm$byClass[5]
+logistic <- list(recall_log, precision_log)
 
 svm_lin_test <- predict(svm_lin_mod, test_data, type = "raw")
 svm_lin_cm <- confusionMatrix(svm_lin_test, test_data$Indicator)
-recall_svm_lin <- svm_lin_cm$byClass[1]
+recall_svm_lin <- svm_lin_cm$byClass[6]
 precision_svm_lin <- svm_lin_cm$byClass[5]
+svm_lin <- list(recall_svm_lin, precision_svm_lin)
 
 svm_radial_test <- predict(svm_radial_mod, test_data, type = "raw")
 svm_radial_cm <- confusionMatrix(svm_radial_test, test_data$Indicator)
-recall_svm_radial <- svm_radial_cm$byClass[1]
+recall_svm_radial <- svm_radial_cm$byClass[6]
 precision_svm_radial <- svm_radial_cm$byClass[5]
+svm_radial <- list(recall_svm_radial, precision_svm_radial)
+```
+
+```{r}
+# Visualizing test set performance
+
+begin <- c("2007-12-01")
+end <- c("2008-06-01")
+rec_dates_test <- tibble(begin, end)
+rec_dates_test$begin <- as.Date(rec_dates_test$begin)
+rec_dates_test$end <- as.Date(rec_dates_test$end)
+
+rf_dates_test <- bind_cols(Date_test, rf_test)
+colnames(rf_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(rf_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+boost_dates_test <- bind_cols(Date_test, boost_test)
+colnames(boost_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(boost_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+logistic_dates_test <- bind_cols(Date_test, logistic_test)
+colnames(logistic_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(logistic_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+svm_lin_dates_test <- bind_cols(Date_test, svm_lin_test)
+colnames(svm_lin_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(svm_lin_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+svm_radial_dates_test <- bind_cols(Date_test, svm_radial_test)
+colnames(svm_radial_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(svm_radial_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 ```
 

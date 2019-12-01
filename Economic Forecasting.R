@@ -61,18 +61,24 @@ colnames(spread_data) <- c("Date", "Spread", "Indicator")
 spread_data$Indicator <- as.factor(spread_data$Indicator)
 
 # Feature-Engineering mit 10 Lags
-n = 10
-spread_data <- setDT(spread_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
-spread_data <- spread_data %>%
-  fill(Lag1:Lag10, .direction = "up")
-spread_data$Indicator <- relevel(spread_data$Indicator, ref = "Bust")
-
-## Modellierung
-
 set.seed(28101997)
 splits <- initial_time_split(spread_data, prop = 2/3)
 train_data <- training(splits)
 test_data <- testing(splits)
+
+n = 10
+train_data <- setDT(train_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+train_data <- train_data %>%
+  fill(Lag1:Lag10, .direction = "up")
+train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
+
+n = 10
+test_data <- setDT(test_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+test_data <- test_data %>%
+  fill(Lag1:Lag10, .direction = "up")
+test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
+
+# Modellierung
 
 Date_train <- train_data$Date
 Date_train <- as_tibble(Date_train)
@@ -81,8 +87,6 @@ train_data$Date <- NULL
 Date_test <- test_data$Date
 Date_test <- as_tibble(Date_test)
 test_data$Date <- NULL
-
-test_data$Indicator <- ifelse(test_data$Indicator == "Bust", 1, 0)
 
 # Warp-Antrieb
 set.seed(28101997)
@@ -173,7 +177,8 @@ rf_preds <- rf_preds[!duplicated(rf_preds$rowIndex),]
 Dates_holdout <- Date_train[51:348,]
 rf_preds_dates <- bind_cols(Dates_holdout, rf_preds)
 colnames(rf_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
-ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Logistic Regression
 
@@ -187,7 +192,8 @@ logistic_preds <- logistic_preds[!duplicated(logistic_preds$rowIndex),]
 Dates_holdout <- Date_train[51:348,]
 logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds)
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
-ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Boosting
 
@@ -201,7 +207,8 @@ boosting_preds <- boosting_preds[!duplicated(boosting_preds$rowIndex),]
 Dates_holdout <- Date_train[51:348,]
 boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds)
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
-ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # SVM (Linear)
 
@@ -215,7 +222,8 @@ svm_lin_preds <- svm_lin_preds[!duplicated(svm_lin_preds$rowIndex),]
 Dates_holdout <- Date_train[51:348,]
 svm_lin_preds_dates <- bind_cols(Dates_holdout, svm_lin_preds)
 colnames(svm_lin_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
-ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # SVM (RBF)
 
@@ -229,36 +237,75 @@ svm_radial_preds <- svm_radial_preds[!duplicated(svm_radial_preds$rowIndex),]
 Dates_holdout <- Date_train[51:348,]
 svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
-ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Test Performance
 
-rf_test <- predict(rf_mod, test_data, type = "raw")
-rf_cm <- confusionMatrix(rf_test, test_data$Indicator)
+rf_test_raw <- predict(rf_mod, test_data, type = "raw")
+rf_test <- predict(rf_mod, test_data, type = "prob")
+rf_cm <- confusionMatrix(rf_test_raw, test_data$Indicator)
 recall_rf <- rf_cm$byClass[1]
 precision_rf <- rf_cm$byClass[5]
 rf <- list(recall_rf, precision_rf)
 
-boost_test <- predict(boost_mod, test_data, type = "raw")
-boost_cm <- confusionMatrix(boost_test, test_data$Indicator)
+boost_test_raw <- predict(boost_mod, test_data, type = "raw")
+boost_test <- predict(boost_mod, test_data, type = "prob")
+boost_cm <- confusionMatrix(boost_test_raw, test_data$Indicator)
 recall_boost <- boost_cm$byClass[6]
 precision_boost <- boost_cm$byClass[5]
 boost <- list(recall_boost, precision_boost)
 
-logistic_test <- predict(logistic_mod, test_data, type = "raw")
-log_cm <- confusionMatrix(logistic_test, test_data$Indicator)
+logistic_test_raw <- predict(logistic_mod, test_data, type = "raw")
+logistic_test <- predict(logistic_mod, test_data, type = "prob")
+log_cm <- confusionMatrix(logistic_test_raw, test_data$Indicator)
 recall_log <- log_cm$byClass[6]
 precision_log <- log_cm$byClass[5]
 logistic <- list(recall_log, precision_log)
 
-svm_lin_test <- predict(svm_lin_mod, test_data, type = "raw")
-svm_lin_cm <- confusionMatrix(svm_lin_test, test_data$Indicator)
+svm_lin_test_raw <- predict(svm_lin_mod, test_data, type = "raw")
+svm_lin_test <- predict(svm_lin_mod, test_data, type = "prob")
+svm_lin_cm <- confusionMatrix(svm_lin_test_raw, test_data$Indicator)
 recall_svm_lin <- svm_lin_cm$byClass[6]
 precision_svm_lin <- svm_lin_cm$byClass[5]
 svm_lin <- list(recall_svm_lin, precision_svm_lin)
 
-svm_radial_test <- predict(svm_radial_mod, test_data, type = "raw")
-svm_radial_cm <- confusionMatrix(svm_radial_test, test_data$Indicator)
+svm_radial_test_raw <- predict(svm_radial_mod, test_data, type = "raw")
+svm_radial_test <- predict(svm_radial_mod, test_data, type = "prob")
+svm_radial_cm <- confusionMatrix(svm_radial_test_raw, test_data$Indicator)
 recall_svm_radial <- svm_radial_cm$byClass[6]
 precision_svm_radial <- svm_radial_cm$byClass[5]
 svm_radial <- list(recall_svm_radial, precision_svm_radial)
+
+# Visualizing test set performance
+
+begin <- c("2007-12-01")
+end <- c("2008-06-01")
+rec_dates_test <- tibble(begin, end)
+rec_dates_test$begin <- as.Date(rec_dates_test$begin)
+rec_dates_test$end <- as.Date(rec_dates_test$end)
+
+rf_dates_test <- bind_cols(Date_test, rf_test)
+colnames(rf_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(rf_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+boost_dates_test <- bind_cols(Date_test, boost_test)
+colnames(boost_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(boost_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+logistic_dates_test <- bind_cols(Date_test, logistic_test)
+colnames(logistic_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(logistic_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+svm_lin_dates_test <- bind_cols(Date_test, svm_lin_test)
+colnames(svm_lin_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(svm_lin_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+svm_radial_dates_test <- bind_cols(Date_test, svm_radial_test)
+colnames(svm_radial_dates_test) <- c("Date", "Recession_Prob", "Expansion_Prob")
+ggplot(svm_radial_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
+  geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
