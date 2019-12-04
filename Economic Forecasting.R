@@ -14,78 +14,157 @@ library(doParallel)
 library(MLmetrics)
 library(data.table)
 library(Metrics)
-spread <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/YieldSpread.xls", range = "A12:B11353", col_names = c("Date", "Spread"))
-spread <- tk_tbl(spread)
-spread_xts <- tk_xts(spread)
-spread$Date <- as.yearmon(spread$Date)
-month.end <- endpoints(spread_xts, on = "months")
-month_by_day <- period.apply(spread_xts, INDEX = month.end, FUN = mean)
-monthly_spread <- to.monthly(month_by_day)
-monthly_spread <- monthly_spread$month_by_day.Open
-colnames(monthly_spread) <- "Spread"
-Date <- tk_index(monthly_spread)
+library(readr)
+
+#10Y-Treasury Yields
+T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/10YT-CM.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
+T10YCM <- tk_tbl(T10YCM)
+T10YCM_xts <- tk_xts(T10YCM)
+T10YCM$Date <- as.yearmon(T10YCM$Date)
+month.end <- endpoints(T10YCM_xts, on = "months")
+month_by_day <- period.apply(T10YCM_xts, INDEX = month.end, FUN = mean)
+monthly_T10YCM <- to.monthly(month_by_day)
+monthly_T10YCM <- monthly_T10YCM$month_by_day.Open
+colnames(monthly_T10YCM) <- "T10YCM"
+Date <- tk_index(monthly_T10YCM)
 Date_df <- tibble::enframe(Date)
-spread_df <- as_tibble(coredata(monthly_spread$Spread))
-monthly_spread_df <- bind_cols(Date_df, spread_df)
-monthly_spread_df$name <- NULL
-colnames(monthly_spread_df) <- c("Date", "Spread")
+T10YCM_df <- as_tibble(coredata(monthly_T10YCM$T10YCM))
+monthly_T10YCM_df <- bind_cols(Date_df, T10YCM_df)
+monthly_T10YCM_df$name <- NULL
+colnames(monthly_T10YCM_df) <- c("Date", "T10YCM")
+monthly_T10YCM_df <- monthly_T10YCM_df[-c(696),]
 
+#3M-Treasury Yields
+T3MSM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/TB3MS.xls", range = "A348:B1042", col_names = c("Date", "3M-YIELD"))
+T3MSM$Date <- as.yearmon(T3MSM$Date)
 
-begin <- c("1980-01-01", "1981-07-01", "1990-07-01", "2001-03-01", "2007-12-01")
-end <- c("1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01", "2009-06-01")
+#Join I
+spread_df <- bind_cols(monthly_T10YCM_df, T3MSM, .id = NULL)
+spread_df$Date1 <- NULL
+
+#S&P Index
+SP500 <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/SP500.csv", col_names = TRUE)
+colnames(SP500) = c("Date","Open","High","Low","Close","Adj_Close","Volume")
+SP500$Date <- as.yearmon(SP500$Date)
+SP500 <- select(SP500, c("Date", "Adj_Close"))
+
+# Join II
+df_0.3 <- left_join(spread_df, SP500, on = "Date")
+df_0.3 <- df_0.3[-c(695),]
+
+# Consumer Confidence Index (CCI)
+CCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "CCI"))
+CCI$Date <- as.yearmon(CCI$Date)
+
+# Join III
+df_0.4 <- left_join(df_0.3, CCI, on = "Date")
+
+# Business Confidence Index
+BCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "BCI"))
+BCI$Date <- as.yearmon(BCI$Date)
+
+# Join IV
+df_0.5 <- left_join(df_0.4, BCI, on = "Date")
+colnames(df_0.5) <- c("Date", "T10YCM", "T3MSM", "SP500", "CCI", "BCI")
+
+# Bond-equivalence for T3MSM ++ Spread
+df_0.5 <- df_0.5 %>% 
+  mutate(T3MBE = 100*((365*T3MSM)/100)/(360-(91*T3MSM/100))) %>%
+  mutate(Spread = T10YCM-T3MBE)
+
+data <- select(df_0.5, c("Date", "Spread", "SP500", "CCI", "BCI"))
+
+begin <- c("1970-01-01", "1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01", "2008-01-01")
+end <- c("1970-11-01", "1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01", "2009-06-01")
 rec_dates <- tibble(begin, end)
 rec_dates$begin <- as.Date(rec_dates$begin)
 rec_dates$end <- as.Date(rec_dates$end)
-monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
+data$Date <- as.Date(data$Date)
 
-ggplot(monthly_spread_df, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 2-Year Maturity)", caption = "Quelle: FRED") + 
+ggplot(data, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 2-Year Maturity)", caption = "Quelle: FRED") + 
   geom_rect(data = rec_dates, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
-recession <- tibble(indicator = rep("NoBust", 522))
-Date <- tibble::enframe(index(monthly_spread))
+recession <- tibble(indicator = rep("NoBust", 694))
+Date <- tibble::enframe(data$Date)
 recession <- bind_cols(Date, recession)
 recession$name <- NULL
 colnames(recession) <- c("Date", "Indicator")
 recession$Date <- as_date(recession$Date)
 
 # Gemäß Klassifizierung des NBER werden nun die fünf Rezessionen seit 1975 eingetragen.
-recession[recession$Date >= "2007-12-01" & recession$Date <= "2009-06-01",]$Indicator <- "Bust"
-recession[recession$Date >= "1980-01-01" & recession$Date <= "1980-07-01",]$Indicator <- "Bust"
-recession[recession$Date >= "1981-07-01" & recession$Date <= "1982-11-01",]$Indicator <- "Bust"
-recession[recession$Date >= "1990-07-01" & recession$Date <= "1991-03-01",]$Indicator <- "Bust"
-recession[recession$Date >= "2001-03-01" & recession$Date <= "2001-11-01",]$Indicator <- "Bust"
+recession[recession$Date >= "2008-01-01" & recession$Date <= "2009-06-01",]$Indicator <- "Bust"
+recession[recession$Date >= "2001-04-01" & recession$Date <= "2001-11-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1990-08-01" & recession$Date <= "1991-03-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1981-08-01" & recession$Date <= "1982-11-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1980-02-01" & recession$Date <= "1980-07-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1973-12-01" & recession$Date <= "1975-04-01",]$Indicator <- "Bust"
+recession[recession$Date >= "1970-01-01" & recession$Date <= "1970-11-01",]$Indicator <- "Bust"
 
 # Zusammenführung der Datensätze
-spread_data <- bind_cols(list(recession$Date, monthly_spread_df$Spread, recession$Indicator))
-colnames(spread_data) <- c("Date", "Spread", "Indicator")
-spread_data$Indicator <- as.factor(spread_data$Indicator)
+data_rec <- bind_cols(data, Indicator = recession$Indicator)
+data_rec$Indicator <- as.factor(data_rec$Indicator)
 
-# Feature-Engineering mit 10 Lags
+# Feature-Engineering with LagNo 12 (Train)
 set.seed(28101997)
-splits <- initial_time_split(spread_data, prop = 2/3)
+splits <- initial_time_split(data_rec, prop = 2/3)
 train_data <- training(splits)
 test_data <- testing(splits)
 
-n = 10
-train_data <- setDT(train_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+train_data <- setDT(train_data)[, paste("YieldLag", 12, sep = "") := shift(Spread, 12)][]
+train_data <- setDT(train_data)[, paste("SP500Lag", 12, sep = "") := shift(SP500, 12)][]
+train_data <- setDT(train_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
+train_data <- setDT(train_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
+
 train_data <- train_data %>%
-  fill(Lag1:Lag10, .direction = "up")
+  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12)
 train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
 
-n = 10
-test_data <- setDT(test_data)[, paste("Lag", 1:n, sep = "") := shift(Spread, 1:n)][]
+# Feature-Engineering with LagNo 12 (Test)
+
+test_data <- setDT(test_data)[, paste("YieldLag", 12, sep = "") := shift(Spread, 12)][]
+test_data <- setDT(test_data)[, paste("SP500Lag", 12, sep = "") := shift(SP500, 12)][]
+test_data <- setDT(test_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
+test_data <- setDT(test_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
+
 test_data <- test_data %>%
-  fill(Lag1:Lag10, .direction = "up")
+  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12)
+
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
+
+# Normalization
+
+train_mean_YieldLag12 <- mean(train_data$YieldLag12)
+train_mean_SP500Lag12 <- mean(train_data$SP500Lag12)
+train_mean_CCILag12 <- mean(train_data$CCILag12)
+train_mean_BCILag12 <- mean(train_data$BCILag12)
+
+train_sd_YieldLag12 <- sd(train_data$YieldLag12)
+train_sd_SP500Lag12 <- sd(train_data$SP500Lag12)
+train_sd_CCILag12 <- sd(train_data$CCILag12)
+train_sd_BCILag12 <- sd(train_data$BCILag12)
+
+train_data$YieldLag12 <- (train_data$YieldLag12 - train_mean_YieldLag12)/(train_sd_YieldLag12)
+train_data$SP500Lag12 <- (train_data$SP500Lag12 - train_mean_SP500Lag12)/(train_sd_SP500Lag12)
+train_data$CCILag12 <- (train_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
+train_data$BCILag12 <- (train_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
+
+# Apply same scaler for test set
+
+test_data$YieldLag12 <- (test_data$YieldLag12 - train_mean_YieldLag12)/(train_sd_YieldLag12)
+test_data$SP500Lag12 <- (test_data$SP500Lag12 - train_mean_SP500Lag12)/(train_sd_SP500Lag12)
+test_data$CCILag12 <- (test_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
+test_data$BCILag12 <- (test_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
 
 # Modellierung
 
 Date_train <- train_data$Date
-Date_train <- as_tibble(Date_train)
+Date_train <- tibble::enframe(Date_train)
 train_data$Date <- NULL
 
 Date_test <- test_data$Date
-Date_test <- as_tibble(Date_test)
+Date_test <- tibble::enframe(Date_test)
 test_data$Date <- NULL
 
 # Warp-Antrieb
@@ -95,7 +174,7 @@ cl <- makeCluster(nr_cores) # Verwendung der Kernzahl minus 2
 registerDoParallel(cl)
 
 TimeLord <- trainControl(method = "timeslice",
-                         initialWindow = 50,
+                         initialWindow = 110,
                          horizon = 12,
                          fixedWindow = FALSE,
                          allowParallel = TRUE,
@@ -110,7 +189,6 @@ rf_mod <- train(Indicator~ .,
                 data = train_data,
                 method = "ranger",
                 trControl = TimeLord,
-                preProcess = c("center", "scale"),
                 tuneLength=tuneLength_num, metric = "AUC")
 
 set.seed(28101997)
@@ -118,7 +196,6 @@ boost_mod <- train(Indicator~ .,
                    data = train_data,
                    method = "gbm",
                    trControl = TimeLord,
-                   preProcess = c("center", "scale"),
                    tuneLength=tuneLength_num,
                    verbose = FALSE, metric = "AUC")
 
@@ -127,7 +204,6 @@ logistic_mod <- train(Indicator~ .,
                       data = train_data,
                       method = "glm",
                       family = "binomial",
-                      preProcess = c("center", "scale"),
                       trControl = TimeLord,
                       tuneLength=tuneLength_num, metric = "AUC")
 
@@ -135,7 +211,6 @@ set.seed(28101997)
 svm_lin_mod <- train(Indicator~.,
                  data = train_data,
                  method = "svmLinear",
-                 preProcess = c("center", "scale"),
                  trControl = TimeLord,
                  tuneLength = tuneLength_num, metric = "AUC")
 
@@ -143,7 +218,6 @@ set.seed(28101997)
 svm_radial_mod <- train(Indicator~.,
                         data = train_data,
                         method = "svmRadial",
-                        preProcess = c("center", "scale"),
                         trControl = TimeLord,
                         tuneLength = tuneLength_num, metric = "AUC")
 
@@ -158,12 +232,12 @@ dotplot(resamps, metric = "Recall", main = "Recall nach Modell")
 dotplot(resamps, metric = "Precision", main = "Precision nach Modell")
 dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell")
 
-begin <- c("1980-01-01", "1981-07-01", "1990-07-01", "2001-03-01")
-end <- c("1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01")
+begin <- c("1970-01-01", "1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01")
+end <- c("1970-11-01", "1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01")
 rec_dates_train <- tibble(begin, end)
 rec_dates_train$begin <- as.Date(rec_dates_train$begin)
 rec_dates_train$end <- as.Date(rec_dates_train$end)
-monthly_spread_df$Date <- as.Date(monthly_spread_df$Date)
+data$Date <- as.Date(data$Date)
 
 # Random Forest
 
@@ -174,7 +248,7 @@ rf_preds <- rf_preds %>%
 
 rf_preds <- rf_preds[order(rf_preds$rowIndex),]
 rf_preds <- rf_preds[!duplicated(rf_preds$rowIndex),]
-Dates_holdout <- Date_train[51:348,]
+Dates_holdout <- Date_train[111:462,]
 rf_preds_dates <- bind_cols(Dates_holdout, rf_preds)
 colnames(rf_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
@@ -189,7 +263,7 @@ logistic_preds <- logistic_preds %>%
 
 logistic_preds <- logistic_preds[order(logistic_preds$rowIndex),]
 logistic_preds <- logistic_preds[!duplicated(logistic_preds$rowIndex),]
-Dates_holdout <- Date_train[51:348,]
+Dates_holdout <- Date_train[111:462,]
 logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds)
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
@@ -204,7 +278,7 @@ boosting_preds <- boosting_preds %>%
 
 boosting_preds <- boosting_preds[order(boosting_preds$rowIndex),]
 boosting_preds <- boosting_preds[!duplicated(boosting_preds$rowIndex),]
-Dates_holdout <- Date_train[51:348,]
+Dates_holdout <- Date_train[111:462,]
 boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds)
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
@@ -219,7 +293,7 @@ svm_lin_preds <- svm_lin_preds %>%
 
 svm_lin_preds <- svm_lin_preds[order(svm_lin_preds$rowIndex),]
 svm_lin_preds <- svm_lin_preds[!duplicated(svm_lin_preds$rowIndex),]
-Dates_holdout <- Date_train[51:348,]
+Dates_holdout <- Date_train[111:462,]
 svm_lin_preds_dates <- bind_cols(Dates_holdout, svm_lin_preds)
 colnames(svm_lin_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
@@ -234,7 +308,7 @@ svm_radial_preds <- svm_radial_preds %>%
 
 svm_radial_preds <- svm_radial_preds[order(svm_radial_preds$rowIndex),]
 svm_radial_preds <- svm_radial_preds[!duplicated(svm_radial_preds$rowIndex),]
-Dates_holdout <- Date_train[51:348,]
+Dates_holdout <- Date_train[111:462,]
 svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
@@ -245,7 +319,7 @@ ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(co
 rf_test_raw <- predict(rf_mod, test_data, type = "raw")
 rf_test <- predict(rf_mod, test_data, type = "prob")
 rf_cm <- confusionMatrix(rf_test_raw, test_data$Indicator)
-recall_rf <- rf_cm$byClass[1]
+recall_rf <- rf_cm$byClass[6]
 precision_rf <- rf_cm$byClass[5]
 rf <- list(recall_rf, precision_rf)
 
@@ -279,8 +353,8 @@ svm_radial <- list(recall_svm_radial, precision_svm_radial)
 
 # Visualizing test set performance
 
-begin <- c("2007-12-01")
-end <- c("2008-06-01")
+begin <- c("2001-04-01", "2008-01-01")
+end <- c("2001-11-01", "2008-06-01")
 rec_dates_test <- tibble(begin, end)
 rec_dates_test$begin <- as.Date(rec_dates_test$begin)
 rec_dates_test$end <- as.Date(rec_dates_test$end)

@@ -107,7 +107,7 @@ test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 Der Datensatz weist eine erhebliche Disbalance zwischen in der Zahl von Rezessionen gegenüber rezessionsfreien Zeiten auf.
 
 ```{r}
-ggplot(data = spread_data) + 
+ggplot(data = data_rec) + 
     geom_bar(mapping = aes(x = Indicator, y = ..prop.., group = 1), stat = "count", fill = "#4CA3DD") + 
     scale_y_continuous(labels = scales::percent_format(scale = 100)) + theme_classic() + xlab("Recession Indicator") + ylab("Proportion") + theme(text = element_text(family = "Crimson", size = 15)) + labs(title = "Klassenverhältnis des Datensatzes", subtitle = "Bezogen auf Gesamtdatensatz")
 ```
