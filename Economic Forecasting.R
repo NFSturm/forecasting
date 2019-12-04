@@ -252,7 +252,7 @@ Dates_holdout <- Date_train[111:462,]
 rf_preds_dates <- bind_cols(Dates_holdout, rf_preds)
 colnames(rf_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 14)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Logistic Regression
 
@@ -267,7 +267,7 @@ Dates_holdout <- Date_train[111:462,]
 logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds)
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 14)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Boosting
 
@@ -282,7 +282,7 @@ Dates_holdout <- Date_train[111:462,]
 boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds)
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 14)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # SVM (Linear)
 
@@ -297,7 +297,7 @@ Dates_holdout <- Date_train[111:462,]
 svm_lin_preds_dates <- bind_cols(Dates_holdout, svm_lin_preds)
 colnames(svm_lin_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 14)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # SVM (RBF)
 
@@ -312,7 +312,7 @@ Dates_holdout <- Date_train[111:462,]
 svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob", "rowIndex")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 12)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 14)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Test Performance
 
