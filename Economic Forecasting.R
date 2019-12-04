@@ -106,7 +106,7 @@ data_rec$Indicator <- as.factor(data_rec$Indicator)
 
 # Feature-Engineering with LagNo 12 (Train)
 set.seed(28101997)
-splits <- initial_time_split(data_rec, prop = 2/3)
+splits <- initial_time_split(data_rec, prop = 3/4)
 train_data <- training(splits)
 test_data <- testing(splits)
 
