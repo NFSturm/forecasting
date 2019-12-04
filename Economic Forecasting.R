@@ -1,5 +1,5 @@
 # Data Preprocessing
-set.seed(28101997) # Seed für Reproduzierbarkeit
+set.seed(28101997) # Seed for Reproducibility
 library(readxl)
 library(zoo)
 library(timetk)
@@ -133,7 +133,7 @@ test_data <- test_data %>%
 
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 
-# Normalization
+# Normalization (Create scaler for training set)
 
 train_mean_YieldLag12 <- mean(train_data$YieldLag12)
 train_mean_SP500Lag12 <- mean(train_data$SP500Lag12)
