@@ -59,7 +59,7 @@ CCI$Date <- as.yearmon(CCI$Date)
 # Join III
 df_0.4 <- left_join(df_0.3, CCI, on = "Date")
 
-# Business Confidence Index
+# Business Confidence Index (BCI)
 BCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "BCI"))
 BCI$Date <- as.yearmon(BCI$Date)
 
