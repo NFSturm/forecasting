@@ -1,7 +1,11 @@
 # Forecasting
-This repository contains code to conduct a recession analysis, making heavy use of the »caret«-package. Three models are compared in their performance as recession predictors: Boosting (gbm), Random Forests (ranger) and simple Logistic Regression (glm). Using the yield curve and up to 10 lags, the probability of a recession is estimated.
+This repository contains code to conduct a recession analysis, making heavy use of the »caret«-package. Three models are compared in their performance as recession predictors: Boosting (gbm), Random Forests (ranger), Support Vector Machines (Linear and Radial Kernel) as well as Logistic Regression (glm) as a benchmark.
 
 Data for macro-variables is drawn from FRED:
+* Consumer Confidence Index (CCI) https://fred.stlouisfed.org/series/CSCICP03USM665S
+* Business Confidence Index (BCI) https://fred.stlouisfed.org/series/BSCICP03USM665S
+* 10-Year Treasury Yield (10YCM) https://fred.stlouisfed.org/series/DGS10
+* 3-Month Treasury Yield (Secondary Market) https://fred.stlouisfed.org/series/TB3MS
 
 Financial data is drawn from YahooFinance:
 https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
