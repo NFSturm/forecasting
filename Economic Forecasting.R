@@ -17,7 +17,7 @@ library(Metrics)
 library(readr)
 
 #10Y-Treasury Yields
-T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/10YT-CM.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
+T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/10YT-CM.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
 T10YCM <- tk_tbl(T10YCM)
 T10YCM_xts <- tk_xts(T10YCM)
 T10YCM$Date <- as.yearmon(T10YCM$Date)
@@ -35,7 +35,7 @@ colnames(monthly_T10YCM_df) <- c("Date", "T10YCM")
 monthly_T10YCM_df <- monthly_T10YCM_df[-c(696),]
 
 #3M-Treasury Yields
-T3MSM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/TB3MS.xls", range = "A348:B1042", col_names = c("Date", "3M-YIELD"))
+T3MSM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/TB3MS.xls", range = "A348:B1042", col_names = c("Date", "3M-YIELD"))
 T3MSM$Date <- as.yearmon(T3MSM$Date)
 
 #Join I
@@ -43,7 +43,7 @@ spread_df <- bind_cols(monthly_T10YCM_df, T3MSM, .id = NULL)
 spread_df$Date1 <- NULL
 
 #S&P Index
-SP500 <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/SP500.csv", col_names = TRUE)
+SP500 <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/Data/SP500.csv", col_names = TRUE)
 colnames(SP500) = c("Date","Open","High","Low","Close","Adj_Close","Volume")
 SP500$Date <- as.yearmon(SP500$Date)
 SP500 <- select(SP500, c("Date", "Adj_Close"))
@@ -53,14 +53,14 @@ df_0.3 <- left_join(spread_df, SP500, on = "Date")
 df_0.3 <- df_0.3[-c(695),]
 
 # Consumer Confidence Index (CCI)
-CCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "CCI"))
+CCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "CCI"))
 CCI$Date <- as.yearmon(CCI$Date)
 
 # Join III
 df_0.4 <- left_join(df_0.3, CCI, on = "Date")
 
 # Business Confidence Index (BCI)
-BCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/CCIUSA.xls", range = "A12:B729", col_names = c("Date", "BCI"))
+BCI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/BCIUSA.xls", range = "A12:B729", col_names = c("Date", "BCI"))
 BCI$Date <- as.yearmon(BCI$Date)
 
 # Join IV
@@ -72,7 +72,14 @@ df_0.5 <- df_0.5 %>%
   mutate(T3MBE = 100*((365*T3MSM)/100)/(360-(91*T3MSM/100))) %>%
   mutate(Spread = T10YCM-T3MBE)
 
-data <- select(df_0.5, c("Date", "Spread", "SP500", "CCI", "BCI"))
+# WTI Oil Price
+OILWTI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/OILWTI.xls", range = "A180:B897", col_names = c("Date", "OILWTI"))
+OILWTI$Date <- as.yearmon(OILWTI$Date)
+
+# Join V
+df_0.6 <- left_join(df_0.5, OILWTI, on = "Date")
+
+data <- select(df_0.6, c("Date", "Spread", "SP500", "CCI", "BCI", "OILWTI"))
 
 begin <- c("1970-01-01", "1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01", "2008-01-01")
 end <- c("1970-11-01", "1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01", "2009-06-01")
@@ -114,10 +121,11 @@ train_data <- setDT(train_data)[, paste("YieldLag", 12, sep = "") := shift(Sprea
 train_data <- setDT(train_data)[, paste("SP500Lag", 12, sep = "") := shift(SP500, 12)][]
 train_data <- setDT(train_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
 train_data <- setDT(train_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
+train_data <- setDT(train_data)[, paste("OILWTILag", 12, sep = "") := shift(OILWTI, 12)][]
 
 train_data <- train_data %>%
-  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12)
+  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12", "OILWTILag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12, OILWTILag12)
 train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
 
 # Feature-Engineering with LagNo 12 (Test)
@@ -126,10 +134,12 @@ test_data <- setDT(test_data)[, paste("YieldLag", 12, sep = "") := shift(Spread,
 test_data <- setDT(test_data)[, paste("SP500Lag", 12, sep = "") := shift(SP500, 12)][]
 test_data <- setDT(test_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
 test_data <- setDT(test_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
+test_data <- setDT(test_data)[, paste("OILWTILag", 12, sep = "") := shift(OILWTI, 12)][]
+
 
 test_data <- test_data %>%
-  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12)
+  fill(c("SP500Lag12","YieldLag12", "CCILag12", "BCILag12", "OILWTILag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500Lag12, CCILag12, BCILag12, YieldLag12, OILWTILag12)
 
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 
@@ -139,16 +149,21 @@ train_mean_YieldLag12 <- mean(train_data$YieldLag12)
 train_mean_SP500Lag12 <- mean(train_data$SP500Lag12)
 train_mean_CCILag12 <- mean(train_data$CCILag12)
 train_mean_BCILag12 <- mean(train_data$BCILag12)
+train_mean_OILWTILag12 <- mean(train_data$OILWTILag12)
+
 
 train_sd_YieldLag12 <- sd(train_data$YieldLag12)
 train_sd_SP500Lag12 <- sd(train_data$SP500Lag12)
 train_sd_CCILag12 <- sd(train_data$CCILag12)
 train_sd_BCILag12 <- sd(train_data$BCILag12)
+train_sd_OILWTILag12 <- sd(train_data$OILWTILag12)
 
 train_data$YieldLag12 <- (train_data$YieldLag12 - train_mean_YieldLag12)/(train_sd_YieldLag12)
 train_data$SP500Lag12 <- (train_data$SP500Lag12 - train_mean_SP500Lag12)/(train_sd_SP500Lag12)
 train_data$CCILag12 <- (train_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
 train_data$BCILag12 <- (train_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
+train_data$OILWTILag12 <- (train_data$OILWTILag12 - train_mean_OILWTILag12)/(train_sd_OILWTILag12)
+
 
 # Apply same scaler for test set
 
@@ -156,6 +171,8 @@ test_data$YieldLag12 <- (test_data$YieldLag12 - train_mean_YieldLag12)/(train_sd
 test_data$SP500Lag12 <- (test_data$SP500Lag12 - train_mean_SP500Lag12)/(train_sd_SP500Lag12)
 test_data$CCILag12 <- (test_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
 test_data$BCILag12 <- (test_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
+test_data$OILWTILag12 <- (test_data$OILWTILag12 - train_mean_OILWTILag12)/(train_sd_OILWTILag12)
+
 
 # Modellierung
 
