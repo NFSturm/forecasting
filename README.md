@@ -6,6 +6,7 @@ Data for macro-variables is drawn from FRED:
 * Business Confidence Index (BCI) https://fred.stlouisfed.org/series/BSCICP03USM665S
 * 10-Year Treasury Yield (10YCM) https://fred.stlouisfed.org/series/DGS10
 * 3-Month Treasury Yield (Secondary Market) https://fred.stlouisfed.org/series/TB3MS
+* Spot Crude Oil Price (WTI) https://fred.stlouisfed.org/series/WTISPLC
 
 Financial data is drawn from YahooFinance:
 https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
