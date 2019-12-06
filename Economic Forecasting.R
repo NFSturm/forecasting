@@ -15,6 +15,8 @@ library(MLmetrics)
 library(data.table)
 library(Metrics)
 library(readr)
+library(rpart)
+library(rpart.plot)
 
 #10Y-Treasury Yields
 T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/10YT-CM.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
@@ -280,6 +282,9 @@ dectree_preds_dates <- bind_cols(Dates_holdout, dectree_preds) %>%
 colnames(dectree_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(dectree_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# Rpart Plot 
+rpart.plot(dectree_mod$finalModel, tweak = 1.2, type = 1)
 
 # Random Forest
 
