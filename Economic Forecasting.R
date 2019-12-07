@@ -271,7 +271,6 @@ sum_resamps
 dotplot(resamps, metric = "Recall", main = "Recall nach Modell")
 dotplot(resamps, metric = "Precision", main = "Precision nach Modell")
 dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell")
-dotplot(resamps, metric = "F", main = "F-Score nach Modell")
 
 begin <- c("1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01")
 end <- c("1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01")
