@@ -3,11 +3,14 @@
 This repository contains code to conduct a recession analysis, making heavy use of the »caret«-package. Three models are compared in their performance as recession predictors: Boosting (gbm), Random Forests (ranger), Support Vector Machines (svmLinear and svmRadial), Decision Trees (rpart) as well as Logistic Regression (glm) as a benchmark.
 
 Data from FRED:
-* Consumer Confidence Index (CCI) https://fred.stlouisfed.org/series/CSCICP03USM665S
-* Business Confidence Index (BCI) https://fred.stlouisfed.org/series/BSCICP03USM665S
 * 10-Year Treasury Yield (10YCM) https://fred.stlouisfed.org/series/DGS10
 * 3-Month Treasury Yield (Secondary Market) https://fred.stlouisfed.org/series/TB3MS
 * Spot Crude Oil Price (WTI) https://fred.stlouisfed.org/series/WTISPLC
+* Immediate Rates (Less than 24 hours) https://fred.stlouisfed.org/series/IRSTCI01USM156N
+
+OECD Data:
+* Consumer Confidence Index (CCI) https://data.oecd.org/leadind/consumer-confidence-index-cci.htm#indicator-chart
+* Business Confidence Index (BCI) https://data.oecd.org/leadind/business-confidence-index-bci.htm#indicator-chart
 
 Financial data is drawn from YahooFinance:
 https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
