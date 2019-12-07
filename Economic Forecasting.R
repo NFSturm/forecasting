@@ -88,7 +88,14 @@ OILWTI <- OILWTI %>%
 # Join V
 df_0.6 <- left_join(df_0.5, OILWTI, on = "Date")
 
-data <- select(df_0.6, c("Date", "Spread", "SP500RE", "CCI", "BCI", "WTIDIFF1M"))
+# Immediate Rates: Less than 24 hours
+IR24 <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/IR24.xls", range = "A12:B729", col_names = c("Date", "IR24"))
+IR24$Date <- as.yearmon(IR24$Date)
+
+# Join VI
+df_0.7 <- left_join(df_0.6, IR24, on = "Date")
+
+data <- select(df_0.7, c("Date", "Spread", "SP500RE", "CCI", "BCI", "WTIDIFF1M", "IR24"))
 
 begin <- c("1970-01-01", "1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01", "2008-01-01")
 end <- c("1970-11-01", "1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01", "2009-06-01")
@@ -97,7 +104,8 @@ rec_dates$begin <- as.Date(rec_dates$begin)
 rec_dates$end <- as.Date(rec_dates$end)
 data$Date <- as.Date(data$Date)
 
-ggplot(data, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 2-Year Maturity)", caption = "Quelle: FRED") + 
+ggplot(data, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + 
+  theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 3-month Maturity)", caption = "Quelle: FRED") + 
   geom_rect(data = rec_dates, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 recession <- tibble(indicator = rep("NoBust", 694))
@@ -126,62 +134,65 @@ splits <- initial_time_split(data_rec, prop = 3/4)
 train_data <- training(splits)
 test_data <- testing(splits)
 
-train_data <- setDT(train_data)[, paste("YieldLag", 12, sep = "") := shift(Spread, 12)][]
+train_data <- setDT(train_data)[, paste("SpreadLag", 12, sep = "") := shift(Spread, 12)][]
 train_data <- setDT(train_data)[, paste("SP500RELag", 12, sep = "") := shift(SP500RE, 12)][]
 train_data <- setDT(train_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
 train_data <- setDT(train_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
 train_data <- setDT(train_data)[, paste("WTIDIFF1MLag", 12, sep = "") := shift(WTIDIFF1M, 12)][]
+train_data <- setDT(train_data)[, paste("IR24Lag", 12, sep = "") := shift(IR24, 12)][]
 
 train_data <- train_data %>%
-  fill(c("SP500RELag12","YieldLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, YieldLag12, WTIDIFF1MLag12)
+  fill(c("SP500RELag12","SpreadLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12", "IR24Lag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, SpreadLag12, WTIDIFF1MLag12, IR24Lag12)
 train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
 
 # Feature-Engineering with LagNo 12 (Test)
 
-test_data <- setDT(test_data)[, paste("YieldLag", 12, sep = "") := shift(Spread, 12)][]
+test_data <- setDT(test_data)[, paste("SpreadLag", 12, sep = "") := shift(Spread, 12)][]
 test_data <- setDT(test_data)[, paste("SP500RELag", 12, sep = "") := shift(SP500RE, 12)][]
 test_data <- setDT(test_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
 test_data <- setDT(test_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
 test_data <- setDT(test_data)[, paste("WTIDIFF1MLag", 12, sep = "") := shift(WTIDIFF1M, 12)][]
-
+test_data <- setDT(test_data)[, paste("IR24Lag", 12, sep = "") := shift(IR24, 12)][]
 
 test_data <- test_data %>%
-  fill(c("SP500RELag12","YieldLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, YieldLag12, WTIDIFF1MLag12)
+  fill(c("SP500RELag12","SpreadLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12", "IR24Lag12"), .direction = "up") %>%
+  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, SpreadLag12, WTIDIFF1MLag12, IR24Lag12)
 
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 
-# Normalization (Create scaler for training set)
+# Standarization (Create scaler for training set)
 
-train_mean_YieldLag12 <- mean(train_data$YieldLag12)
+train_mean_SpreadLag12 <- mean(train_data$SpreadLag12)
 train_mean_SP500RELag12 <- mean(train_data$SP500RELag12)
 train_mean_CCILag12 <- mean(train_data$CCILag12)
 train_mean_BCILag12 <- mean(train_data$BCILag12)
 train_mean_WTIDIFF1MLag12 <- mean(train_data$WTIDIFF1MLag12)
+train_mean_IR24Lag12 <- mean(train_data$IR24Lag12)
 
-
-train_sd_YieldLag12 <- sd(train_data$YieldLag12)
+train_sd_SpreadLag12 <- sd(train_data$SpreadLag12)
 train_sd_SP500RELag12 <- sd(train_data$SP500RELag12)
 train_sd_CCILag12 <- sd(train_data$CCILag12)
 train_sd_BCILag12 <- sd(train_data$BCILag12)
 train_sd_WTIDIFF1MLag12 <- sd(train_data$WTIDIFF1MLag12)
+train_sd_IR24Lag12 <- sd(train_data$IR24Lag12)
 
-train_data$YieldLag12 <- (train_data$YieldLag12 - train_mean_YieldLag12)/(train_sd_YieldLag12)
+
+train_data$SpreadLag12 <- (train_data$SpreadLag12 - train_mean_SpreadLag12)/(train_sd_SpreadLag12)
 train_data$SP500RELag12 <- (train_data$SP500RELag12 - train_mean_SP500RELag12)/(train_sd_SP500RELag12)
 train_data$CCILag12 <- (train_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
 train_data$BCILag12 <- (train_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
 train_data$WTIDIFF1MLag12 <- (train_data$WTIDIFF1MLag12 - train_mean_WTIDIFF1MLag12)/(train_sd_WTIDIFF1MLag12)
-
+train_data$IR24Lag12 <- (train_data$IR24Lag12 - train_mean_IR24Lag12)/(train_sd_IR24Lag12)
 
 # Apply same scaler for test set
 
-test_data$YieldLag12 <- (test_data$YieldLag12 - train_mean_YieldLag12)/(train_sd_YieldLag12)
+test_data$SpreadLag12 <- (test_data$SpreadLag12 - train_mean_SpreadLag12)/(train_sd_SpreadLag12)
 test_data$SP500RELag12 <- (test_data$SP500RELag12 - train_mean_SP500RELag12)/(train_sd_SP500RELag12)
 test_data$CCILag12 <- (test_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
 test_data$BCILag12 <- (test_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
 test_data$WTIDIFF1MLag12 <- (test_data$WTIDIFF1MLag12 - train_mean_WTIDIFF1MLag12)/(train_sd_WTIDIFF1MLag12)
-
+test_data$IR24Lag12 <- (test_data$IR24Lag12 - train_mean_IR24Lag12)/(train_sd_IR24Lag12)
 
 # Modellierung
 
@@ -260,6 +271,7 @@ sum_resamps
 dotplot(resamps, metric = "Recall", main = "Recall nach Modell")
 dotplot(resamps, metric = "Precision", main = "Precision nach Modell")
 dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell")
+dotplot(resamps, metric = "F", main = "F-Score nach Modell")
 
 begin <- c("1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01")
 end <- c("1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01")
