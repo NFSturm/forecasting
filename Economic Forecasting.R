@@ -104,8 +104,9 @@ rec_dates$begin <- as.Date(rec_dates$begin)
 rec_dates$end <- as.Date(rec_dates$end)
 data$Date <- as.Date(data$Date)
 
+# Plotting the Yield Spread
 ggplot(data, aes(x = Date, y = Spread)) + geom_line(col = "#4CA3DD") + theme_classic() + geom_hline(yintercept = 0) + 
-  theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1976 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 3-month Maturity)", caption = "Quelle: FRED") + 
+  theme(text = element_text(family = "Crimson", size = 12)) + labs(title = "Yield Spread von 1962 bis 2019", subtitle = "Monatlicher Durchschnitt (10-Year Maturity - 3-Month Maturity)", caption = "Quelle: FRED") + 
   geom_rect(data = rec_dates, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 recession <- tibble(indicator = rep("NoBust", 694))
@@ -115,7 +116,7 @@ recession$name <- NULL
 colnames(recession) <- c("Date", "Indicator")
 recession$Date <- as_date(recession$Date)
 
-# Gemäß Klassifizierung des NBER werden nun die fünf Rezessionen seit 1975 eingetragen.
+# NBER Business Cycles (Expansions & Contractions)
 recession[recession$Date >= "2008-01-01" & recession$Date <= "2009-06-01",]$Indicator <- "Bust"
 recession[recession$Date >= "2001-04-01" & recession$Date <= "2001-11-01",]$Indicator <- "Bust"
 recession[recession$Date >= "1990-08-01" & recession$Date <= "1991-03-01",]$Indicator <- "Bust"
@@ -124,7 +125,7 @@ recession[recession$Date >= "1980-02-01" & recession$Date <= "1980-07-01",]$Indi
 recession[recession$Date >= "1973-12-01" & recession$Date <= "1975-04-01",]$Indicator <- "Bust"
 recession[recession$Date >= "1970-01-01" & recession$Date <= "1970-11-01",]$Indicator <- "Bust"
 
-# Zusammenführung der Datensätze
+# Combination of datasets
 data_rec <- bind_cols(data, Indicator = recession$Indicator)
 data_rec$Indicator <- as.factor(data_rec$Indicator)
 
@@ -162,7 +163,6 @@ test_data <- test_data %>%
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 
 # Standarization (Create scaler for training set)
-
 train_mean_SpreadLag12 <- mean(train_data$SpreadLag12)
 train_mean_SP500RELag12 <- mean(train_data$SP500RELag12)
 train_mean_CCILag12 <- mean(train_data$CCILag12)
@@ -194,7 +194,7 @@ test_data$BCILag12 <- (test_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILa
 test_data$WTIDIFF1MLag12 <- (test_data$WTIDIFF1MLag12 - train_mean_WTIDIFF1MLag12)/(train_sd_WTIDIFF1MLag12)
 test_data$IR24Lag12 <- (test_data$IR24Lag12 - train_mean_IR24Lag12)/(train_sd_IR24Lag12)
 
-# Modellierung
+# Extract dates
 
 Date_train <- train_data$Date
 Date_train <- tibble::enframe(Date_train)
@@ -204,10 +204,10 @@ Date_test <- test_data$Date
 Date_test <- tibble::enframe(Date_test)
 test_data$Date <- NULL
 
-# Warp-Antrieb
+# Warp-Drive: Engage!
 set.seed(28101997)
 nr_cores <- detectCores() - 2
-cl <- makeCluster(nr_cores) # Verwendung der Kernzahl minus 2
+cl <- makeCluster(nr_cores) # Core number minus 2
 registerDoParallel(cl)
 
 TimeLord <- trainControl(method = "timeslice",
@@ -422,6 +422,7 @@ precision_svm_radial <- svm_radial_cm$byClass[5]
 svm_radial <- list(recall_svm_radial, precision_svm_radial)
 
 # Visualizing test set performance
+# Could the models have predicted the Great Recession?
 
 begin <- c("2008-01-01")
 end <- c("2009-06-01")
