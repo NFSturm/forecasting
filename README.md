@@ -1,6 +1,6 @@
 # Forecasting
 
-This repository contains code to conduct a recession analysis, making heavy use of the »caret«-package. Three models are compared in their performance as recession predictors: Boosting (gbm), Random Forests (ranger), Support Vector Machines (svmLinear and svmRadial), Decision Trees (rpart) as well as Logistic Regression (glm) as a benchmark.
+This repository contains code to conduct a recession analysis. Three models are compared in their performance as recession predictors: Boosting (gbm), Random Forests (ranger), Support Vector Machines (svmLinear and svmRadial), Decision Trees (rpart) as well as Logistic Regression (glm) as a benchmark.
 
 Data from FRED:
 * 10-Year Treasury Yield (10YCM) https://fred.stlouisfed.org/series/DGS10
@@ -13,7 +13,7 @@ OECD Data:
 * Business Confidence Index (BCI) https://data.oecd.org/leadind/business-confidence-index-bci.htm#indicator-chart
 
 Financial data is drawn from YahooFinance:
-https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
+* S&P500 https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
 
 Data for US recession is from NBER:
 https://www.nber.org/cycles.html
