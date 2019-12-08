@@ -34,4 +34,4 @@ https://www.nber.org/cycles.html
 * data.table
 * readr
 
-**Note**: Since recessions rarely happen (luckily!), the classes "Bust" (for recession) and "NoBust" (no recession) are heavily imbalanced. This creates some problem during the optimization process. 
+**Note**: Since recessions rarely happen (luckily!), the classes "Bust" (for recession) and "NoBust" (no recession) are heavily imbalanced. This creates some problem during the optimization process. To mend this issue, the optimizier uses the "prSummary"-function, which focusses on precision and recall. 
