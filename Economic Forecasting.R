@@ -44,7 +44,7 @@ T3MSM$Date <- as.yearmon(T3MSM$Date)
 spread_df <- bind_cols(monthly_T10YCM_df, T3MSM, .id = NULL)
 spread_df$Date1 <- NULL
 
-#S&P Index
+#S&P500 Index
 SP500 <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/Data/SP500.csv", col_names = TRUE)
 colnames(SP500) = c("Date","Open","High","Low","Close","Adj_Close","Volume")
 SP500$Date <- as.yearmon(SP500$Date)
@@ -129,73 +129,74 @@ recession[recession$Date >= "1970-01-01" & recession$Date <= "1970-11-01",]$Indi
 data_rec <- bind_cols(data, Indicator = recession$Indicator)
 data_rec$Indicator <- as.factor(data_rec$Indicator)
 
-# Feature-Engineering with LagNo 12 (Train)
+# Feature-Engineering with LagNo 12 (Train) - Simulates 12-month-ahead forecasting
+# Analysis can be conducted with LagNo 6 as well (6-month-ahead-forecasting)
 set.seed(28101997)
+LagNo <- 12 #Should be testted for 12, 6 and 3 months ahead
 splits <- initial_time_split(data_rec, prop = 3/4)
 train_data <- training(splits)
 test_data <- testing(splits)
 
-train_data <- setDT(train_data)[, paste("SpreadLag", 12, sep = "") := shift(Spread, 12)][]
-train_data <- setDT(train_data)[, paste("SP500RELag", 12, sep = "") := shift(SP500RE, 12)][]
-train_data <- setDT(train_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
-train_data <- setDT(train_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
-train_data <- setDT(train_data)[, paste("WTIDIFF1MLag", 12, sep = "") := shift(WTIDIFF1M, 12)][]
-train_data <- setDT(train_data)[, paste("IR24Lag", 12, sep = "") := shift(IR24, 12)][]
+train_data <- setDT(train_data)[, paste("SpreadLag") := shift(Spread, LagNo)][]
+train_data <- setDT(train_data)[, paste("SP500RELag") := shift(SP500RE,LagNo)][]
+train_data <- setDT(train_data)[, paste("CCILag") := shift(CCI, LagNo)][]
+train_data <- setDT(train_data)[, paste("BCILag") := shift(BCI, LagNo)][]
+train_data <- setDT(train_data)[, paste("WTIDIFF1MLag") := shift(WTIDIFF1M, LagNo)][]
+train_data <- setDT(train_data)[, paste("IR24Lag") := shift(IR24, LagNo)][]
 
 train_data <- train_data %>%
-  fill(c("SP500RELag12","SpreadLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12", "IR24Lag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, SpreadLag12, WTIDIFF1MLag12, IR24Lag12)
+  fill(c("SP500RELag","SpreadLag", "CCILag", "BCILag", "WTIDIFF1MLag", "IR24Lag"), .direction = "up") %>%
+  select(Date, Indicator, SP500RELag, CCILag, BCILag, SpreadLag, WTIDIFF1MLag, IR24Lag)
 train_data$Indicator <- relevel(train_data$Indicator, ref = "Bust")
 
 # Feature-Engineering with LagNo 12 (Test)
 
-test_data <- setDT(test_data)[, paste("SpreadLag", 12, sep = "") := shift(Spread, 12)][]
-test_data <- setDT(test_data)[, paste("SP500RELag", 12, sep = "") := shift(SP500RE, 12)][]
-test_data <- setDT(test_data)[, paste("CCILag", 12, sep = "") := shift(CCI, 12)][]
-test_data <- setDT(test_data)[, paste("BCILag", 12, sep = "") := shift(BCI, 12)][]
-test_data <- setDT(test_data)[, paste("WTIDIFF1MLag", 12, sep = "") := shift(WTIDIFF1M, 12)][]
-test_data <- setDT(test_data)[, paste("IR24Lag", 12, sep = "") := shift(IR24, 12)][]
+test_data <- setDT(test_data)[, paste("SpreadLag") := shift(Spread, LagNo)][]
+test_data <- setDT(test_data)[, paste("SP500RELag") := shift(SP500RE, LagNo)][]
+test_data <- setDT(test_data)[, paste("CCILag") := shift(CCI, LagNo)][]
+test_data <- setDT(test_data)[, paste("BCILag") := shift(BCI, LagNo)][]
+test_data <- setDT(test_data)[, paste("WTIDIFF1MLag") := shift(WTIDIFF1M, LagNo)][]
+test_data <- setDT(test_data)[, paste("IR24Lag") := shift(IR24, LagNo)][]
 
 test_data <- test_data %>%
-  fill(c("SP500RELag12","SpreadLag12", "CCILag12", "BCILag12", "WTIDIFF1MLag12", "IR24Lag12"), .direction = "up") %>%
-  select(Date, Indicator, SP500RELag12, CCILag12, BCILag12, SpreadLag12, WTIDIFF1MLag12, IR24Lag12)
+  fill(c("SP500RELag","SpreadLag", "CCILag", "BCILag", "WTIDIFF1MLag", "IR24Lag"), .direction = "up") %>%
+  select(Date, Indicator, SP500RELag, CCILag, BCILag, SpreadLag, WTIDIFF1MLag, IR24Lag)
 
 test_data$Indicator <- relevel(test_data$Indicator, ref = "Bust")
 
 # Standarization (Create scaler for training set)
-train_mean_SpreadLag12 <- mean(train_data$SpreadLag12)
-train_mean_SP500RELag12 <- mean(train_data$SP500RELag12)
-train_mean_CCILag12 <- mean(train_data$CCILag12)
-train_mean_BCILag12 <- mean(train_data$BCILag12)
-train_mean_WTIDIFF1MLag12 <- mean(train_data$WTIDIFF1MLag12)
-train_mean_IR24Lag12 <- mean(train_data$IR24Lag12)
+train_mean_SpreadLag <- mean(train_data$SpreadLag)
+train_mean_SP500RELag <- mean(train_data$SP500RELag)
+train_mean_CCILag <- mean(train_data$CCILag)
+train_mean_BCILag <- mean(train_data$BCILag)
+train_mean_WTIDIFF1MLag <- mean(train_data$WTIDIFF1MLag)
+train_mean_IR24Lag <- mean(train_data$IR24Lag)
 
-train_sd_SpreadLag12 <- sd(train_data$SpreadLag12)
-train_sd_SP500RELag12 <- sd(train_data$SP500RELag12)
-train_sd_CCILag12 <- sd(train_data$CCILag12)
-train_sd_BCILag12 <- sd(train_data$BCILag12)
-train_sd_WTIDIFF1MLag12 <- sd(train_data$WTIDIFF1MLag12)
-train_sd_IR24Lag12 <- sd(train_data$IR24Lag12)
+train_sd_SpreadLag <- sd(train_data$SpreadLag)
+train_sd_SP500RELag <- sd(train_data$SP500RELag)
+train_sd_CCILag <- sd(train_data$CCILag)
+train_sd_BCILag <- sd(train_data$BCILag)
+train_sd_WTIDIFF1MLag <- sd(train_data$WTIDIFF1MLag)
+train_sd_IR24Lag <- sd(train_data$IR24Lag)
 
 
-train_data$SpreadLag12 <- (train_data$SpreadLag12 - train_mean_SpreadLag12)/(train_sd_SpreadLag12)
-train_data$SP500RELag12 <- (train_data$SP500RELag12 - train_mean_SP500RELag12)/(train_sd_SP500RELag12)
-train_data$CCILag12 <- (train_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
-train_data$BCILag12 <- (train_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
-train_data$WTIDIFF1MLag12 <- (train_data$WTIDIFF1MLag12 - train_mean_WTIDIFF1MLag12)/(train_sd_WTIDIFF1MLag12)
-train_data$IR24Lag12 <- (train_data$IR24Lag12 - train_mean_IR24Lag12)/(train_sd_IR24Lag12)
+train_data$SpreadLag <- (train_data$SpreadLag - train_mean_SpreadLag)/(train_sd_SpreadLag)
+train_data$SP500RELag <- (train_data$SP500RELag - train_mean_SP500RELag)/(train_sd_SP500RELag)
+train_data$CCILag <- (train_data$CCILag - train_mean_CCILag)/(train_sd_CCILag)
+train_data$BCILag <- (train_data$BCILag - train_mean_BCILag)/(train_sd_BCILag)
+train_data$WTIDIFF1MLag <- (train_data$WTIDIFF1MLag - train_mean_WTIDIFF1MLag)/(train_sd_WTIDIFF1MLag)
+train_data$IR24Lag <- (train_data$IR24Lag - train_mean_IR24Lag)/(train_sd_IR24Lag)
 
 # Apply same scaler for test set
 
-test_data$SpreadLag12 <- (test_data$SpreadLag12 - train_mean_SpreadLag12)/(train_sd_SpreadLag12)
-test_data$SP500RELag12 <- (test_data$SP500RELag12 - train_mean_SP500RELag12)/(train_sd_SP500RELag12)
-test_data$CCILag12 <- (test_data$CCILag12 - train_mean_CCILag12)/(train_sd_CCILag12)
-test_data$BCILag12 <- (test_data$BCILag12 - train_mean_BCILag12)/(train_sd_BCILag12)
-test_data$WTIDIFF1MLag12 <- (test_data$WTIDIFF1MLag12 - train_mean_WTIDIFF1MLag12)/(train_sd_WTIDIFF1MLag12)
-test_data$IR24Lag12 <- (test_data$IR24Lag12 - train_mean_IR24Lag12)/(train_sd_IR24Lag12)
+test_data$SpreadLag <- (test_data$SpreadLag - train_mean_SpreadLag)/(train_sd_SpreadLag)
+test_data$SP500RELag <- (test_data$SP500RELag - train_mean_SP500RELag)/(train_sd_SP500RELag)
+test_data$CCILag <- (test_data$CCILag - train_mean_CCILag)/(train_sd_CCILag)
+test_data$BCILag <- (test_data$BCILag - train_mean_BCILag)/(train_sd_BCILag)
+test_data$WTIDIFF1MLag <- (test_data$WTIDIFF1MLag - train_mean_WTIDIFF1MLag)/(train_sd_WTIDIFF1MLag)
+test_data$IR24Lag <- (test_data$IR24Lag - train_mean_IR24Lag)/(train_sd_IR24Lag)
 
 # Extract dates
-
 Date_train <- train_data$Date
 Date_train <- tibble::enframe(Date_train)
 train_data$Date <- NULL
@@ -213,13 +214,13 @@ registerDoParallel(cl)
 TimeLord <- trainControl(method = "timeslice",
                          initialWindow = 110,
                          horizon = 12,
-                         fixedWindow = FALSE,
+                         fixedWindow = TRUE,
                          allowParallel = TRUE,
                          summaryFunction = prSummary,
                          classProbs = TRUE,
                          savePredictions = "final")
 
-tuneLength_num <- 10
+tuneLength_num <- 12
 
 set.seed(28101997)
 
@@ -268,9 +269,9 @@ resamps <- resamples(list(boost = boost_mod, ranger = rf_mod, logistic = logisti
 sum_resamps <- summary(resamps)
 sum_resamps
 
-dotplot(resamps, metric = "Recall", main = "Recall nach Modell")
-dotplot(resamps, metric = "Precision", main = "Precision nach Modell")
-dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell")
+dotplot(resamps, metric = "Recall", main = "Recall nach Modell", par.settings=list(par.main.text=list(cex=2)))
+dotplot(resamps, metric = "Precision", main = "Precision nach Modell", par.settings=list(par.main.text=list(cex=2)))
+dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell", par.settings=list(par.main.text=list(cex=2)))
 
 begin <- c("1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01")
 end <- c("1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01")
@@ -292,10 +293,11 @@ dectree_preds_dates <- bind_cols(Dates_holdout, dectree_preds) %>%
   select(value, Recession_Prob)
 colnames(dectree_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(dectree_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
+  labs(title = "Decision Tree Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
 
 # Rpart Plot 
-rpart.plot(dectree_mod$finalModel, tweak = 1.2, type = 1)
+rpart.plot(dectree_mod$finalModel, tweak = 1, type = 1)
 
 # Random Forest
 
@@ -311,7 +313,8 @@ rf_preds_dates <- bind_cols(Dates_holdout, rf_preds) %>%
   select(value, Recession_Prob)
 colnames(rf_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
+  labs(title = "Random Forest Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
 
 # Logistic Regression
 
@@ -327,7 +330,9 @@ logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds) %>%
   select(value, Recession_Prob)
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
+  labs(title = "Logistic Regression Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+
 
 # Boosting
 
@@ -343,7 +348,9 @@ boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds) %>%
   select(value, Recession_Prob)
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) + 
+  labs(title = "Boosting Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+
 
 # SVM (Linear)
 
@@ -385,6 +392,7 @@ dectree_cm <- confusionMatrix(dectree_test_raw, test_data$Indicator)
 recall_dectree <- dectree_cm$byClass[6]
 precision_dectree <- dectree_cm$byClass[5]
 dectree <- list(recall_dectree, precision_dectree)
+dectree
 
 rf_test_raw <- predict(rf_mod, test_data, type = "raw")
 rf_test <- predict(rf_mod, test_data, type = "prob")
@@ -392,6 +400,7 @@ rf_cm <- confusionMatrix(rf_test_raw, test_data$Indicator)
 recall_rf <- rf_cm$byClass[6]
 precision_rf <- rf_cm$byClass[5]
 rf <- list(recall_rf, precision_rf)
+rf
 
 boost_test_raw <- predict(boost_mod, test_data, type = "raw")
 boost_test <- predict(boost_mod, test_data, type = "prob")
@@ -399,6 +408,7 @@ boost_cm <- confusionMatrix(boost_test_raw, test_data$Indicator)
 recall_boost <- boost_cm$byClass[6]
 precision_boost <- boost_cm$byClass[5]
 boost <- list(recall_boost, precision_boost)
+boost
 
 logistic_test_raw <- predict(logistic_mod, test_data, type = "raw")
 logistic_test <- predict(logistic_mod, test_data, type = "prob")
@@ -406,6 +416,7 @@ log_cm <- confusionMatrix(logistic_test_raw, test_data$Indicator)
 recall_log <- log_cm$byClass[6]
 precision_log <- log_cm$byClass[5]
 logistic <- list(recall_log, precision_log)
+logistic
 
 svm_lin_test_raw <- predict(svm_lin_mod, test_data, type = "raw")
 svm_lin_test <- predict(svm_lin_mod, test_data, type = "prob")
@@ -413,6 +424,7 @@ svm_lin_cm <- confusionMatrix(svm_lin_test_raw, test_data$Indicator)
 recall_svm_lin <- svm_lin_cm$byClass[6]
 precision_svm_lin <- svm_lin_cm$byClass[5]
 svm_lin <- list(recall_svm_lin, precision_svm_lin)
+svm_lin
 
 svm_radial_test_raw <- predict(svm_radial_mod, test_data, type = "raw")
 svm_radial_test <- predict(svm_radial_mod, test_data, type = "prob")
@@ -420,6 +432,7 @@ svm_radial_cm <- confusionMatrix(svm_radial_test_raw, test_data$Indicator)
 recall_svm_radial <- svm_radial_cm$byClass[6]
 precision_svm_radial <- svm_radial_cm$byClass[5]
 svm_radial <- list(recall_svm_radial, precision_svm_radial)
+svm_radial
 
 # Visualizing test set performance
 # Could the models have predicted the Great Recession?
@@ -465,3 +478,5 @@ svm_radial_dates_test <- bind_cols(Date_test, svm_radial_test) %>%
 colnames(svm_radial_dates_test) <- c("Date", "Recession_Prob")
 ggplot(svm_radial_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
   geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# 42 
