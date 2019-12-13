@@ -8,9 +8,9 @@ Data from FRED:
 * Spot Crude Oil Price (WTI) https://fred.stlouisfed.org/series/WTISPLC
 * Immediate Rates (Less than 24 hours) https://fred.stlouisfed.org/series/IRSTCI01USM156N
 
-OECD Data:
-* Consumer Confidence Index (CCI) https://data.oecd.org/leadind/consumer-confidence-index-cci.htm#indicator-chart
-* Business Confidence Index (BCI) https://data.oecd.org/leadind/business-confidence-index-bci.htm#indicator-chart
+Quandl:
+* Michigan Consumer Survey https://www.quandl.com/data/UMICH/SOC1-University-of-Michigan-Consumer-Survey-Index-of-Consumer-Sentiment
+* PMI https://www.quandl.com/data/ISM/MAN_PMI-PMI-Composite-Index
 
 Financial data is drawn from YahooFinance:
 * S&P500 https://finance.yahoo.com/quote/%5EGSPC/history?p=%5EGSPC
