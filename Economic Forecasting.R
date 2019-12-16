@@ -55,7 +55,7 @@ SP500RE <- SP500 %>%
   select(Date, Diff12M)
 
 # Join II
-df_0.3 <- left_join(spread_df, SP500, on = "Date")
+df_0.3 <- left_join(spread_df, SP500RE, on = "Date")
 df_0.3 <- df_0.3[-c(695),]
 
 # Michigan Consumer Confidence (MICS)
@@ -223,38 +223,39 @@ TimeLord <- trainControl(method = "timeslice",
                          classProbs = TRUE,
                          savePredictions = "final")
 
-tuneLength_num <- 12
+tuneLength_num <- 15
 
 # Individual implementation
 set.seed(28101997)
 
-dectree_mod <- train(Indicator~ .,
+dectree_mod <- train(Indicator~ SP500RELag6 + MICSLag6 + PMILag6 + WTIDIFF1MLag6,
                      data = train_data,
                      method = "rpart",
                      trControl = TimeLord,
                      tuneLength=tuneLength_num, metric = "AUC")
 
-boost_mod <- train(Indicator~ .,
+boost_mod <- train(Indicator~  SP500RELag6 + MICSLag6 + PMILag6,
                    data = train_data,
                    method = "gbm",
                    trControl = TimeLord,
                    tuneLength=tuneLength_num,
-                   verbose = FALSE, metric = "AUC")
+                   verbose = FALSE,
+                   metric = "AUC")
 
-logistic_mod <- train(Indicator~ .,
+logistic_mod <- train(Indicator~ SP500RELag6 + MICSLag6 + PMILag6,
                       data = train_data,
                       method = "glm",
-                      family = "binomial",
+                      family = binomial(link = "probit"),
                       trControl = TimeLord,
                       tuneLength=tuneLength_num, metric = "AUC")
 
-svm_lin_mod <- train(Indicator~.,
+svm_lin_mod <- train(Indicator~ .,
                  data = train_data,
                  method = "svmLinear",
                  trControl = TimeLord,
                  tuneLength = tuneLength_num, metric = "AUC")
 
-svm_radial_mod <- train(Indicator~.,
+svm_radial_mod <- train(Indicator~  PMILag6 + MICSLag6 + WTIDIFF1MLag6,
                         data = train_data,
                         method = "svmRadial",
                         trControl = TimeLord,
@@ -292,7 +293,7 @@ dectree_preds_dates <- bind_cols(Dates_holdout, dectree_preds) %>%
 colnames(dectree_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(dectree_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
-  labs(title = "Decision Tree Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  labs(title = "Decision Tree Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
 
 # Rpart Plot 
 rpart.plot(dectree_mod$finalModel, tweak = 1, type = 1)
@@ -312,7 +313,7 @@ logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds) %>%
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
-  labs(title = "Logistic Regression Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  labs(title = "Logistic Regression Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
 
 
 # Boosting
@@ -330,7 +331,7 @@ boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds) %>%
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) + 
-  labs(title = "Boosting Performance", subtitle = "Auf CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  labs(title = "Boosting Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
 
 
 # SVM (Linear)
@@ -363,6 +364,22 @@ svm_radial_preds_dates <- bind_cols(Dates_holdout, svm_radial_preds) %>%
   select(value, Recession_Prob)
 colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
+# Random Forest
+
+rf_preds <- rf_mod$pred
+rf_preds <- rf_preds %>%
+  select(Bust, rowIndex) %>%
+  rename(Recession_Prob = Bust)
+
+rf_preds <- rf_preds[order(rf_preds$rowIndex),]
+rf_preds <- rf_preds[!duplicated(rf_preds$rowIndex),]
+Dates_holdout <- Date_train[111:520,]
+rf_preds_dates <- bind_cols(Dates_holdout, rf_preds) %>%
+  select(value, Recession_Prob)
+colnames(rf_preds_dates) <- c("Date", "Recession_Prob")
+ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Test Performance
@@ -407,6 +424,14 @@ precision_svm_radial <- svm_radial_cm$byClass[5]
 svm_radial <- list(recall_svm_radial, precision_svm_radial)
 svm_radial
 
+rf_test_raw <- predict(rf_mod, test_data, type = "raw")
+rf_test <- predict(rf_mod, test_data, type = "prob")
+rf_cm <- confusionMatrix(rf_test_raw, test_data$Indicator)
+recall_rf <- rf_cm$byClass[6]
+precision_rf <- rf_cm$byClass[5]
+rf <- list(recall_rf, precision_rf)
+rf
+
 # Visualizing test set performance
 # Could the models have predicted the Great Recession?
 
@@ -446,4 +471,4 @@ colnames(svm_radial_dates_test) <- c("Date", "Recession_Prob")
 ggplot(svm_radial_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
   geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
-# 42 
+# 42
