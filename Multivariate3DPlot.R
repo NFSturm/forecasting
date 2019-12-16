@@ -20,5 +20,21 @@ p <- plot_ly(data, x = ~SP500RELag3, y = ~MICSLag3, z = ~PMILag3, color = ~Indic
                       yaxis = list(title = 'Consumer Confidence (Michigan)'),
                       zaxis = list(title = 'Purchasing Manager Index')),
                       title = "Recessions vs. Growth")
+p
 
-  
+q <- plot_ly(data, x = ~SP500RELag6, y = ~MICSLag6, z = ~PMILag6, color = ~Indicator, colors = c("#63ace5", "#2a4d69")) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Annual Stock Returns'),
+                      yaxis = list(title = 'Consumer Confidence (Michigan)'),
+                      zaxis = list(title = 'Purchasing Manager Index')),
+         title = "Recessions vs. Growth")
+q
+
+r <- plot_ly(data, x = ~SpreadLag12, y = ~SP500RELag12, color = ~Indicator, colors = c("#63ace5", "#2a4d69")) %>%
+  add_markers() %>%
+  layout(xaxis = list(title = 'Yield Spread 10Y-3M'), yaxis = list(title = 'S&P500 Annual Stock Returns'), title = 'Recessions vs. Growth')
+r
+
+s <- plot_ly(data, x = ~Spread, y = ~SP500RE, color = ~Indicator, colors = c("#63ace5", "#2a4d69")) %>%
+  add_markers() %>%
+  layout(xaxis = list(title = 'Yield Spread 10Y-3M'), yaxis = list(title = 'S&P500 Annual Stock Returns'), title = 'Recessions vs. Growth')
