@@ -62,6 +62,9 @@ df_0.3 <- df_0.3[-c(695),]
 MICS <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/Data/UMICH-CS.csv", col_names = TRUE)
 colnames(MICS) <- c("Date", "MICS")
 MICS$Date <- as.yearmon(MICS$Date)
+MICS <- MICS %>%
+  mutate(MICS = Delt(MICS, k = 1)) %>%
+  select(Date, MICS)
 
 # Join III
 df_0.4 <- left_join(df_0.3, MICS, on = "Date")
@@ -69,6 +72,9 @@ df_0.4 <- left_join(df_0.3, MICS, on = "Date")
 # Purchasing Manager Index (PMI)
 PMI <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/Data/ISM_PMI.csv", col_names = TRUE)
 PMI$Date <- as.yearmon(PMI$Date)
+PMI <- PMI %>%
+  mutate(PMI = Delt(PMI, k = 1)) %>%
+  select(Date, PMI)
 
 # Join IV
 df_0.5 <- left_join(df_0.4, PMI, on = "Date")
@@ -154,6 +160,7 @@ train_data <- setDT(train_data)[, paste0("MICSLag", lag_nrs) := shift(MICS, lag_
 train_data <- setDT(train_data)[, paste0("PMILag", lag_nrs) := shift(PMI, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("WTIDIFF1MLag", lag_nrs) := shift(WTIDIFF1M, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("IR24Lag", lag_nrs) := shift(IR24, lag_nrs)][]
+train_data <- setDT(train_data)[, paste0("IR24Lag", lag_nrs) := shift(IR24, lag_nrs)][]
 
 train_data <- train_data %>%
   na.locf(na.rm = FALSE, fromLast = TRUE)
@@ -211,8 +218,8 @@ nr_cores <- detectCores() - 2
 cl <- makeCluster(nr_cores) # Core number minus 2
 registerDoParallel(cl)
 
-train_data <- train_6m
-test_data <- test_6m
+train_data <- train_12m
+test_data <- test_12m
 
 TimeLord <- trainControl(method = "timeslice",
                          initialWindow = 110,
@@ -228,13 +235,13 @@ tuneLength_num <- 15
 # Individual implementation
 set.seed(28101997)
 
-dectree_mod <- train(Indicator~ SP500RELag6 + MICSLag6 + PMILag6 + WTIDIFF1MLag6,
+dectree_mod <- train(Indicator~ MICSLag12 + PMILag12 + SpreadLag12,
                      data = train_data,
                      method = "rpart",
                      trControl = TimeLord,
                      tuneLength=tuneLength_num, metric = "AUC")
 
-boost_mod <- train(Indicator~  SP500RELag6 + MICSLag6 + PMILag6,
+boost_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
                    data = train_data,
                    method = "gbm",
                    trControl = TimeLord,
@@ -242,20 +249,22 @@ boost_mod <- train(Indicator~  SP500RELag6 + MICSLag6 + PMILag6,
                    verbose = FALSE,
                    metric = "AUC")
 
-logistic_mod <- train(Indicator~ SP500RELag6 + MICSLag6 + PMILag6,
+logistic_mod <- train(Indicator~ SpreadLag12 + MICSLag12 + PMILag12,
                       data = train_data,
                       method = "glm",
                       family = binomial(link = "probit"),
                       trControl = TimeLord,
                       tuneLength=tuneLength_num, metric = "AUC")
 
-svm_lin_mod <- train(Indicator~ .,
+
+
+svm_lin_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
                  data = train_data,
                  method = "svmLinear",
                  trControl = TimeLord,
                  tuneLength = tuneLength_num, metric = "AUC")
 
-svm_radial_mod <- train(Indicator~  PMILag6 + MICSLag6 + WTIDIFF1MLag6,
+svm_radial_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
                         data = train_data,
                         method = "svmRadial",
                         trControl = TimeLord,
@@ -367,6 +376,13 @@ ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(co
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
 # Random Forest
+
+rf_mod <- train(Indicator~  .,
+                        data = train_data,
+                        method = "rf",
+                        trControl = TimeLord,
+                        tuneLength = tuneLength_num, metric = "AUC", 
+                        importance = TRUE)
 
 rf_preds <- rf_mod$pred
 rf_preds <- rf_preds %>%
