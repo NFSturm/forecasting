@@ -95,14 +95,14 @@ OILWTI <- OILWTI %>%
 # Join V
 df_0.6 <- left_join(df_0.5, OILWTI, on = "Date")
 
-# Immediate Rates: Less than 24 hours
-IR24 <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/IR24.xls", range = "A12:B729", col_names = c("Date", "IR24"))
-IR24$Date <- as.yearmon(IR24$Date)
+# Effective Federal Funds Rate
+FEDFUNDS <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/FEDFUNDS.xls", range = "A12:B795", col_names = c("Date", "FEDFUNDS"))
+FEDFUNDS$Date <- as.yearmon(FEDFUNDS$Date)
 
 # Join VI
-df_0.7 <- left_join(df_0.6, IR24, on = "Date")
+df_0.7 <- left_join(df_0.6, FEDFUNDS, on = "Date")
 
-data <- select(df_0.7, c("Date", "Spread", "SP500RE", "MICS", "PMI", "WTIDIFF1M", "IR24"))
+data <- select(df_0.7, c("Date", "Spread", "SP500RE", "MICS", "PMI", "WTIDIFF1M", "FEDFUNDS"))
 data <- data %>%
   fill(MICS, .direction = "up")
 
@@ -140,7 +140,6 @@ data_rec <- bind_cols(data, Indicator = recession$Indicator)
 data_rec$Indicator <- as.factor(data_rec$Indicator)
 
 # Feature-Engineering with LagNo 12 (Train) - Simulates 12-month-ahead forecasting
-# Analysis can be conducted with LagNo 6 as well (6-month-ahead-forecasting)
 set.seed(28101997)
 splits <- initial_time_split(data_rec, prop = 3/4)
 train <- training(splits)
@@ -159,8 +158,7 @@ train_data <- setDT(train_data)[, paste0("SP500RELag", lag_nrs) := shift(SP500RE
 train_data <- setDT(train_data)[, paste0("MICSLag", lag_nrs) := shift(MICS, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("PMILag", lag_nrs) := shift(PMI, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("WTIDIFF1MLag", lag_nrs) := shift(WTIDIFF1M, lag_nrs)][]
-train_data <- setDT(train_data)[, paste0("IR24Lag", lag_nrs) := shift(IR24, lag_nrs)][]
-train_data <- setDT(train_data)[, paste0("IR24Lag", lag_nrs) := shift(IR24, lag_nrs)][]
+train_data <- setDT(train_data)[, paste0("FEDFUNDSLag", lag_nrs) := shift(FEDFUNDS, lag_nrs)][]
 
 train_data <- train_data %>%
   na.locf(na.rm = FALSE, fromLast = TRUE)
@@ -174,7 +172,7 @@ test_data <- setDT(test_data)[, paste0("SP500RELag", lag_nrs) := shift(SP500RE, 
 test_data <- setDT(test_data)[, paste0("MICSLag", lag_nrs) := shift(MICS, lag_nrs)][]
 test_data <- setDT(test_data)[, paste0("PMILag", lag_nrs) := shift(PMI, lag_nrs)][]
 test_data <- setDT(test_data)[, paste0("WTIDIFF1MLag", lag_nrs) := shift(WTIDIFF1M, lag_nrs)][]
-test_data <- setDT(test_data)[, paste0("IR24Lag", lag_nrs) := shift(IR24, lag_nrs)][]
+test_data <- setDT(test_data)[, paste0("FEDFUNDSLag", lag_nrs) := shift(FEDFUNDS, lag_nrs)][]
 
 test_data <- test_data %>%
   na.locf(na.rm = FALSE, fromLast = TRUE)
@@ -255,8 +253,6 @@ logistic_mod <- train(Indicator~ SpreadLag12 + MICSLag12 + PMILag12,
                       family = binomial(link = "probit"),
                       trControl = TimeLord,
                       tuneLength=tuneLength_num, metric = "AUC")
-
-
 
 svm_lin_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
                  data = train_data,
@@ -375,29 +371,6 @@ colnames(svm_radial_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
   theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
 
-# Random Forest
-
-rf_mod <- train(Indicator~  .,
-                        data = train_data,
-                        method = "rf",
-                        trControl = TimeLord,
-                        tuneLength = tuneLength_num, metric = "AUC", 
-                        importance = TRUE)
-
-rf_preds <- rf_mod$pred
-rf_preds <- rf_preds %>%
-  select(Bust, rowIndex) %>%
-  rename(Recession_Prob = Bust)
-
-rf_preds <- rf_preds[order(rf_preds$rowIndex),]
-rf_preds <- rf_preds[!duplicated(rf_preds$rowIndex),]
-Dates_holdout <- Date_train[111:520,]
-rf_preds_dates <- bind_cols(Dates_holdout, rf_preds) %>%
-  select(value, Recession_Prob)
-colnames(rf_preds_dates) <- c("Date", "Recession_Prob")
-ggplot(rf_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
-
 # Test Performance
 
 dectree_test_raw <- predict(dectree_mod, test_data, type = "raw")
@@ -440,14 +413,6 @@ precision_svm_radial <- svm_radial_cm$byClass[5]
 svm_radial <- list(recall_svm_radial, precision_svm_radial)
 svm_radial
 
-rf_test_raw <- predict(rf_mod, test_data, type = "raw")
-rf_test <- predict(rf_mod, test_data, type = "prob")
-rf_cm <- confusionMatrix(rf_test_raw, test_data$Indicator)
-recall_rf <- rf_cm$byClass[6]
-precision_rf <- rf_cm$byClass[5]
-rf <- list(recall_rf, precision_rf)
-rf
-
 # Visualizing test set performance
 # Could the models have predicted the Great Recession?
 
@@ -486,5 +451,3 @@ svm_radial_dates_test <- bind_cols(Date_test, svm_radial_test) %>%
 colnames(svm_radial_dates_test) <- c("Date", "Recession_Prob")
 ggplot(svm_radial_dates_test, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + theme(text = element_text(family = "Crimson", size = 12)) + 
   geom_rect(data = rec_dates_test, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
-
-# 42
