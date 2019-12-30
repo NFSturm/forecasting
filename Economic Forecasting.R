@@ -19,30 +19,16 @@ library(rpart)
 library(rpart.plot)
 
 #10Y-Treasury Yields
-T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/10YT-CM.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
-T10YCM <- tk_tbl(T10YCM)
-T10YCM_xts <- tk_xts(T10YCM)
+T10YCM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/GS10.xls", range = "A12:B15121", col_names = c("Date", "10Y-YIELD"))
 T10YCM$Date <- as.yearmon(T10YCM$Date)
-month.end <- endpoints(T10YCM_xts, on = "months")
-month_by_day <- period.apply(T10YCM_xts, INDEX = month.end, FUN = mean)
-monthly_T10YCM <- to.monthly(month_by_day)
-monthly_T10YCM <- monthly_T10YCM$month_by_day.Open
-colnames(monthly_T10YCM) <- "T10YCM"
-Date <- tk_index(monthly_T10YCM)
-Date_df <- tibble::enframe(Date)
-T10YCM_df <- as_tibble(coredata(monthly_T10YCM$T10YCM))
-monthly_T10YCM_df <- bind_cols(Date_df, T10YCM_df)
-monthly_T10YCM_df$name <- NULL
-colnames(monthly_T10YCM_df) <- c("Date", "T10YCM")
-monthly_T10YCM_df <- monthly_T10YCM_df[-c(696),]
+T10YCM <- na.omit(T10YCM)
 
 #3M-Treasury Yields
 T3MSM <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/TB3MS.xls", range = "A348:B1042", col_names = c("Date", "3M-YIELD"))
 T3MSM$Date <- as.yearmon(T3MSM$Date)
 
 #Join I
-spread_df <- bind_cols(monthly_T10YCM_df, T3MSM, .id = NULL)
-spread_df$Date1 <- NULL
+spread_df <- inner_join(T10YCM, T3MSM, on = "Date")
 
 #S&P500 Index
 SP500 <- read_csv("/Users/nfsturm/Documents/Forecasting/Dev/Data/SP500.csv", col_names = TRUE)
@@ -89,8 +75,8 @@ df_0.5 <- df_0.5 %>%
 OILWTI <- read_excel("/Users/nfsturm/Documents/Forecasting/Dev/Data/OILWTI.xls", range = "A180:B897", col_names = c("Date", "OILWTI"))
 OILWTI$Date <- as.yearmon(OILWTI$Date)
 OILWTI <- OILWTI %>%
-  mutate(WTIDIFF1M = Delt(OILWTI, k = 1)) %>%
-  select(Date, WTIDIFF1M)
+  mutate(WTI = Delt(OILWTI, k = 3)) %>%
+  select(Date, WTI)
 
 # Join V
 df_0.6 <- left_join(df_0.5, OILWTI, on = "Date")
@@ -102,7 +88,7 @@ FEDFUNDS$Date <- as.yearmon(FEDFUNDS$Date)
 # Join VI
 df_0.7 <- left_join(df_0.6, FEDFUNDS, on = "Date")
 
-data <- select(df_0.7, c("Date", "Spread", "SP500RE", "MICS", "PMI", "WTIDIFF1M", "FEDFUNDS"))
+data <- select(df_0.7, c("Date", "Spread", "SP500RE", "MICS", "PMI", "WTI", "FEDFUNDS"))
 data <- data %>%
   fill(MICS, .direction = "up")
 
@@ -157,7 +143,7 @@ train_data <- setDT(train_data)[, paste0("SpreadLag", lag_nrs) := shift(Spread, 
 train_data <- setDT(train_data)[, paste0("SP500RELag", lag_nrs) := shift(SP500RE,lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("MICSLag", lag_nrs) := shift(MICS, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("PMILag", lag_nrs) := shift(PMI, lag_nrs)][]
-train_data <- setDT(train_data)[, paste0("WTIDIFF1MLag", lag_nrs) := shift(WTIDIFF1M, lag_nrs)][]
+train_data <- setDT(train_data)[, paste0("WTILag", lag_nrs) := shift(WTI, lag_nrs)][]
 train_data <- setDT(train_data)[, paste0("FEDFUNDSLag", lag_nrs) := shift(FEDFUNDS, lag_nrs)][]
 
 train_data <- train_data %>%
@@ -171,7 +157,7 @@ test_data <- setDT(test_data)[, paste0("SpreadLag", lag_nrs) := shift(Spread, la
 test_data <- setDT(test_data)[, paste0("SP500RELag", lag_nrs) := shift(SP500RE, lag_nrs)][]
 test_data <- setDT(test_data)[, paste0("MICSLag", lag_nrs) := shift(MICS, lag_nrs)][]
 test_data <- setDT(test_data)[, paste0("PMILag", lag_nrs) := shift(PMI, lag_nrs)][]
-test_data <- setDT(test_data)[, paste0("WTIDIFF1MLag", lag_nrs) := shift(WTIDIFF1M, lag_nrs)][]
+test_data <- setDT(test_data)[, paste0("WTILag", lag_nrs) := shift(WTI, lag_nrs)][]
 test_data <- setDT(test_data)[, paste0("FEDFUNDSLag", lag_nrs) := shift(FEDFUNDS, lag_nrs)][]
 
 test_data <- test_data %>%
@@ -228,9 +214,9 @@ TimeLord <- trainControl(method = "timeslice",
                          classProbs = TRUE,
                          savePredictions = "final")
 
-tuneLength_num <- 15
+tuneLength_num <- 20
 
-# Individual implementation
+# Individual implementation (Example)
 set.seed(28101997)
 
 dectree_mod <- train(Indicator~ MICSLag12 + PMILag12 + SpreadLag12,

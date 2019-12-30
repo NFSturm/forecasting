@@ -1,7 +1,7 @@
 library(data.table)
 library(ggplot2)
 
-data <- readRDS("data_recession.RDS")
+data <- readRDS("datarec.RDS")
 lag_nr <- 12
 data <- setDT(data)[, paste0("SpreadLag", lag_nr) := shift(Spread, lag_nr)][]
 data <- setDT(data)[, paste0("SP500RELag", lag_nr) := shift(SP500RE,lag_nr)][]
