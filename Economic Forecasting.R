@@ -124,6 +124,7 @@ recession[recession$Date >= "1970-01-01" & recession$Date <= "1970-11-01",]$Indi
 # Combination of datasets
 data_rec <- bind_cols(data, Indicator = recession$Indicator)
 data_rec$Indicator <- as.factor(data_rec$Indicator)
+saveRDS(data_rec, "data_recessions.RDS")
 
 # Feature-Engineering with LagNo 12 (Train) - Simulates 12-month-ahead forecasting
 set.seed(28101997)
@@ -216,16 +217,22 @@ TimeLord <- trainControl(method = "timeslice",
 
 tuneLength_num <- 20
 
-# Individual implementation (Example)
+# Individual implementation (Best Model on Hold-Out-Predictions // Best Model for Test data)
 set.seed(28101997)
 
-dectree_mod <- train(Indicator~ MICSLag12 + PMILag12 + SpreadLag12,
+dectree_mod_train <- train(Indicator~ MICSLag12 + SpreadLag12,
                      data = train_data,
                      method = "rpart",
                      trControl = TimeLord,
                      tuneLength=tuneLength_num, metric = "AUC")
 
-boost_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
+dectree_mod_test <- train(Indicator~ MICSLag12 + PMILag12 + SpreadLag12,
+                     data = train_data,
+                     method = "rpart",
+                     trControl = TimeLord,
+                     tuneLength=tuneLength_num, metric = "AUC")
+
+boost_mod_train <- train(Indicator~ SpreadLag12 + FEDFUNDSLag12 + SP500RELag12 + WTILag12 + PMILag12,
                    data = train_data,
                    method = "gbm",
                    trControl = TimeLord,
@@ -233,35 +240,52 @@ boost_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
                    verbose = FALSE,
                    metric = "AUC")
 
-logistic_mod <- train(Indicator~ SpreadLag12 + MICSLag12 + PMILag12,
+boost_mod_test <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12,
+                   data = train_data,
+                   method = "gbm",
+                   trControl = TimeLord,
+                   tuneLength=tuneLength_num,
+                   verbose = FALSE,
+                   metric = "AUC")
+
+logistic_mod_train <- train(Indicator~ SpreadLag12,
                       data = train_data,
                       method = "glm",
                       family = binomial(link = "probit"),
                       trControl = TimeLord,
                       tuneLength=tuneLength_num, metric = "AUC")
 
-svm_lin_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
+logistic_mod_test <- train(Indicator~ SpreadLag12 + MICSLag12 + PMILag12,
+                      data = train_data,
+                      method = "glm",
+                      family = binomial(link = "probit"),
+                      trControl = TimeLord,
+                      tuneLength=tuneLength_num, metric = "AUC")
+
+svm_lin_mod_train <- train(Indicator~ SpreadLag12 + SP500RELag12 + PMILag12,
                  data = train_data,
                  method = "svmLinear",
                  trControl = TimeLord,
                  tuneLength = tuneLength_num, metric = "AUC")
 
-svm_radial_mod <- train(Indicator~ SpreadLag12 + SP500RELag12 + MICSLag12 + PMILag12,
+# No model achieved non-null performance on the test data for linear kernels 
+
+# Due to computational constraints, the tuneLength was limited to 6, which resulted in 36 models.
+tuneLength_num_rad <- 6
+
+svm_radial_mod_train <- train(Indicator~ SpreadLag12 + FEDFUNDSLag12,
                         data = train_data,
-                        method = "svmRadial",
+                        method = "svmRadialSigma",
+                        trControl = TimeLord,
+                        tuneLength = tuneLength_num, metric = "AUC")
+
+svm_radial_mod_test <- train(Indicator~ SpreadLag12 + WTILag12 + PMILag12,
+                        data = train_data,
+                        method = "svmRadialSigma",
                         trControl = TimeLord,
                         tuneLength = tuneLength_num, metric = "AUC")
 
 #stopCluster(cl)
-
-set.seed(28101997)
-resamps <- resamples(list(boost = boost_mod, logistic = logistic_mod, svm_lin = svm_lin_mod, svm_radial = svm_radial_mod, decision_tree = dectree_mod))
-sum_resamps <- summary(resamps)
-sum_resamps
-
-dotplot(resamps, metric = "Recall", main = "Recall nach Modell", par.settings=list(par.main.text=list(cex=2)))
-dotplot(resamps, metric = "Precision", main = "Precision nach Modell", par.settings=list(par.main.text=list(cex=2)))
-dotplot(resamps, metric = "AUC", main = "Precision-Recall-AUC nach Modell", par.settings=list(par.main.text=list(cex=2)))
 
 begin <- c("1973-12-01", "1980-02-01", "1981-08-01", "1990-08-01", "2001-04-01")
 end <- c("1975-04-01", "1980-07-01", "1982-11-01", "1991-03-01", "2001-11-01")
@@ -271,7 +295,7 @@ rec_dates_train$end <- as.Date(rec_dates_train$end)
 data$Date <- as.Date(data$Date)
 
 # Decision Tree
-dectree_preds <- dectree_mod$pred
+dectree_preds <- dectree_mod_train$pred
 dectree_preds <- dectree_preds %>%
   select(Bust, rowIndex) %>%
   rename(Recession_Prob = Bust)
@@ -283,15 +307,15 @@ dectree_preds_dates <- bind_cols(Dates_holdout, dectree_preds) %>%
   select(value, Recession_Prob)
 colnames(dectree_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(dectree_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
-  labs(title = "Decision Tree Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
 
 # Rpart Plot 
-rpart.plot(dectree_mod$finalModel, tweak = 1, type = 1)
+rpart.plot(dectree_mod_train$finalModel, tweak = 1, type = 1)
 
 # Logistic Regression
 
-logistic_preds <- logistic_mod$pred
+logistic_preds <- logistic_mod_train$pred
 logistic_preds <- logistic_preds %>%
   select(Bust, rowIndex) %>%
   rename(Recession_Prob = Bust)
@@ -303,13 +327,13 @@ logistic_preds_dates <- bind_cols(Dates_holdout, logistic_preds) %>%
   select(value, Recession_Prob)
 colnames(logistic_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(logistic_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) +
-  labs(title = "Logistic Regression Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
 
 
 # Boosting
 
-boosting_preds <- boost_mod$pred
+boosting_preds <- boost_mod_train$pred
 boosting_preds <- boosting_preds %>%
   select(Bust, rowIndex) %>%
   rename(Recession_Prob = Bust)
@@ -321,13 +345,13 @@ boosting_preds_dates <- bind_cols(Dates_holdout, boosting_preds) %>%
   select(value, Recession_Prob)
 colnames(boosting_preds_dates) <- c("Date", "Recession_Prob")
 ggplot(boosting_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col = "#4CA3DD") + theme_classic() + 
-  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE) + 
-  labs(title = "Boosting Performance", subtitle = "CV-Hold-out-samples") + theme(plot.title = element_text(size=22))
+  theme(text = element_text(family = "Crimson", size = 15)) + geom_rect(data = rec_dates_train, aes(xmin = begin, xmax = end, ymin = -Inf, ymax = +Inf), alpha = 0.5, fill= "grey80", inherit.aes = FALSE)
+
 
 
 # SVM (Linear)
 
-svm_lin_preds <- svm_lin_mod$pred
+svm_lin_preds <- svm_lin_mod_train$pred
 svm_lin_preds <- svm_lin_preds %>%
   select(Bust, rowIndex) %>%
   rename(Recession_Prob = Bust)
@@ -343,7 +367,7 @@ ggplot(svm_lin_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(col =
 
 # SVM (RBF)
 
-svm_radial_preds <- svm_radial_mod$pred
+svm_radial_preds <- svm_radial_mod_train$pred
 svm_radial_preds <- svm_radial_preds %>%
   select(Bust, rowIndex) %>%
   rename(Recession_Prob = Bust)
@@ -359,40 +383,40 @@ ggplot(svm_radial_preds_dates, aes(x = Date, y = Recession_Prob)) + geom_line(co
 
 # Test Performance
 
-dectree_test_raw <- predict(dectree_mod, test_data, type = "raw")
-dectree_test <- predict(dectree_mod, test_data, type = "prob")
+dectree_test_raw <- predict(dectree_mod_test, test_data, type = "raw")
+dectree_test <- predict(dectree_mod_test, test_data, type = "prob")
 dectree_cm <- confusionMatrix(dectree_test_raw, test_data$Indicator)
 recall_dectree <- dectree_cm$byClass[6]
 precision_dectree <- dectree_cm$byClass[5]
 dectree <- list(recall_dectree, precision_dectree)
 dectree
 
-boost_test_raw <- predict(boost_mod, test_data, type = "raw")
-boost_test <- predict(boost_mod, test_data, type = "prob")
+boost_test_raw <- predict(boost_mod_test, test_data, type = "raw")
+boost_test <- predict(boost_mod_test, test_data, type = "prob")
 boost_cm <- confusionMatrix(boost_test_raw, test_data$Indicator)
 recall_boost <- boost_cm$byClass[6]
 precision_boost <- boost_cm$byClass[5]
 boost <- list(recall_boost, precision_boost)
 boost
 
-logistic_test_raw <- predict(logistic_mod, test_data, type = "raw")
-logistic_test <- predict(logistic_mod, test_data, type = "prob")
+logistic_test_raw <- predict(logistic_mod_test, test_data, type = "raw")
+logistic_test <- predict(logistic_mod_test, test_data, type = "prob")
 log_cm <- confusionMatrix(logistic_test_raw, test_data$Indicator)
 recall_log <- log_cm$byClass[6]
 precision_log <- log_cm$byClass[5]
 logistic <- list(recall_log, precision_log)
 logistic
 
-svm_lin_test_raw <- predict(svm_lin_mod, test_data, type = "raw")
-svm_lin_test <- predict(svm_lin_mod, test_data, type = "prob")
+svm_lin_test_raw <- predict(svm_lin_mod_test, test_data, type = "raw")
+svm_lin_test <- predict(svm_lin_mod_test, test_data, type = "prob")
 svm_lin_cm <- confusionMatrix(svm_lin_test_raw, test_data$Indicator)
 recall_svm_lin <- svm_lin_cm$byClass[6]
 precision_svm_lin <- svm_lin_cm$byClass[5]
 svm_lin <- list(recall_svm_lin, precision_svm_lin)
 svm_lin
 
-svm_radial_test_raw <- predict(svm_radial_mod, test_data, type = "raw")
-svm_radial_test <- predict(svm_radial_mod, test_data, type = "prob")
+svm_radial_test_raw <- predict(svm_radial_mod_test, test_data, type = "raw")
+svm_radial_test <- predict(svm_radial_mod_test, test_data, type = "prob")
 svm_radial_cm <- confusionMatrix(svm_radial_test_raw, test_data$Indicator)
 recall_svm_radial <- svm_radial_cm$byClass[6]
 precision_svm_radial <- svm_radial_cm$byClass[5]
