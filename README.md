@@ -21,9 +21,6 @@ https://www.nber.org/cycles.html
 # Packages used 
 * readxl
 * zoo
-* timetk
-* xts
-* tidyquant
 * ggplot2
 * rsample
 * caret
